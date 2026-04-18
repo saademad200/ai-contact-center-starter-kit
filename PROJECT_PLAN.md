@@ -26,7 +26,7 @@
 13. [Testing Strategy](#13-testing-strategy)
 14. [Environment Variables Reference](#14-environment-variables-reference)
 15. [Local Development Setup](#15-local-development-setup)
-16. [Frontend Pages & Components](#16-frontend-pages--components)
+16. [Slack Bot — Interaction Spec](#16-slack-bot--interaction-spec)
 17. [Deployment Guide](#17-deployment-guide)
 
 ---
@@ -71,37 +71,33 @@ An internal RAG-based chat system where employees describe their question in pla
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│                    Employees (Browser)                         │
-│                  Next.js 14 Chat Interface                     │
+│                    Employees (Slack)                           │
+│    /kms <question>  |  @kms-bot <question>  |  DM bot         │
 └───────────────────────────┬───────────────────────────────────┘
-                            │ HTTPS (port 443)
+                            │ Socket Mode (WebSocket, free plan)
                 ┌───────────▼───────────┐
-                │  ALB (AWS Application  │
-                │   Load Balancer)       │
+                │   Slack Bot (Bolt)     │
+                │   Python, ECS Fargate  │
                 └───────────┬───────────┘
-                            │
-        ┌───────────────────┴───────────────────┐
-        │                                       │
-┌───────▼────────┐                    ┌─────────▼──────────┐
-│  API Service   │                    │  Frontend Service  │
-│  FastAPI :8000 │                    │  Next.js :3000     │
-│  ECS Fargate   │                    │  ECS Fargate       │
-└───────┬────────┘                    └────────────────────┘
-        │
-        ├──────────────────────────────────────────────────┐
-        │                                                  │
-        ▼                                                  ▼
-┌───────────────┐    ┌──────────────┐    ┌────────────────────┐
-│  AWS DynamoDB │    │   AWS S3     │    │    ChromaDB        │
-│  (metadata)   │    │ (raw docs)   │    │  (vector store)    │
-│               │    │              │    │  ECS + EFS volume  │
-└───────────────┘    └──────────────┘    └─────────┬──────────┘
-                                                    │ similarity search
-                                              ┌─────▼──────┐
-                                              │ Groq API   │
-                                              │ (or HF API)│
-                                              │ Llama 3.1  │
-                                              └────────────┘
+                            │ HTTP → internal ALB
+                ┌───────────▼───────────┐
+                │     API Service        │
+                │  FastAPI :8000         │
+                │  ECS Fargate           │
+                └───────┬───────────────┘
+                        │
+        ┌───────────────┼───────────────┐
+        ▼               ▼               ▼
+┌──────────────┐ ┌────────────┐ ┌──────────────────┐
+│ AWS DynamoDB │ │   AWS S3   │ │    ChromaDB       │
+│ (metadata)   │ │ (raw docs) │ │  (vector store)   │
+│              │ │            │ │  ECS + EFS volume │
+└──────────────┘ └────────────┘ └────────┬─────────┘
+                                         │ similarity search
+                                   ┌─────▼──────┐
+                                   │ Groq API   │
+                                   │ Llama 3.1  │
+                                   └────────────┘
 ```
 
 ### Component Responsibilities
@@ -109,13 +105,14 @@ An internal RAG-based chat system where employees describe their question in pla
 | Component | Technology | Responsibility |
 |-----------|-----------|----------------|
 | **API Service** | FastAPI (Python 3.11), ECS Fargate | All business logic, RAG, auth |
-| **Frontend** | Next.js 14, ECS Fargate | Chat UI, admin panel, auth pages |
+| **Slack Bot** | Slack Bolt (Python), ECS Fargate, Socket Mode | Employee chat interface, admin file upload |
 | **DynamoDB** | AWS DynamoDB (PAY_PER_REQUEST) | Users, sessions, documents metadata, messages |
 | **S3** | AWS S3 | Raw uploaded files (PDFs, DOCX, MD) |
 | **ChromaDB** | ChromaDB container, EFS volume | Text chunk embeddings + similarity search |
 | **Embeddings** | sentence-transformers MiniLM (local) | Convert text to 384-dim vectors, free |
 | **LLM** | Groq API (Llama 3.1 70B, default) | Answer generation from retrieved context |
-| **ALB** | AWS Application Load Balancer | HTTPS termination, routing |
+| **ALB** | AWS Application Load Balancer (internal) | Routes Slack bot → API |
+| **Slack** | Free Slack workspace | No cost — Incoming Webhooks + Socket Mode both free |
 
 ---
 
@@ -204,37 +201,26 @@ Project/                              ← monorepo root
 │   ├── pyproject.toml                ← ruff + mypy + bandit + pytest config
 │   └── requirements.txt
 │
-├── frontend/                         ← Next.js 14 (App Router, TypeScript)
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── (auth)/login/page.tsx
-│   │   │   ├── chat/page.tsx
-│   │   │   └── admin/
-│   │   │       ├── page.tsx          ← Document management
-│   │   │       └── users/page.tsx    ← User management (admin only)
-│   │   ├── components/
-│   │   │   ├── ChatMessage.tsx       ← Renders user/assistant messages + sources
-│   │   │   ├── SourceCard.tsx        ← Collapsible source document reference
-│   │   │   ├── UploadDropzone.tsx    ← Drag-and-drop file upload
-│   │   │   ├── DocumentTable.tsx     ← List docs with status badges
-│   │   │   └── Sidebar.tsx           ← Chat session list
-│   │   └── lib/
-│   │       ├── api.ts                ← Typed API client (fetch wrapper)
-│   │       └── auth.ts               ← JWT storage, refresh logic
-│   └── package.json
+├── slack_bot/                        ← Slack Bolt app (Python, Socket Mode)
+│   ├── main.py                       ← App entry point, SocketModeHandler
+│   ├── handlers/
+│   │   ├── ask.py                    ← /kms + @mention + DM → RAG API → Block Kit reply
+│   │   ├── upload.py                 ← Admin DMs a file → POST /documents/upload
+│   │   └── admin.py                  ← /kms-admin list|delete|reindex (admin only)
+│   └── requirements.txt              ← slack-bolt, httpx
 │
 ├── knowledge_base/
 │   ├── scripts/
 │   │   └── seed_knowledge_base.py    ← Download SBP + HBL public documents
-│   └── raw_docs/                     ← Downloaded PDFs land here
-│       ├── sbp/                      ← SBP regulatory documents
-│       └── hbl/                      ← HBL annual/quarterly reports
+│   └── raw_docs/                     ← Downloaded PDFs land here (gitignored)
+│       ├── sbp/
+│       └── hbl/
 │
-├── .pre-commit-config.yaml           ← All hooks (ruff, mypy, bandit, detect-secrets…)
-├── docker-compose.yml                ← Local: api + frontend + chromadb + dynamodb-local
-├── Makefile                          ← dev, test, lint, tf-plan/apply shortcuts
-├── .env.example                      ← All env vars documented
-├── PROJECT_PLAN.md                   ← THIS FILE
+├── .pre-commit-config.yaml
+├── docker-compose.yml                ← Local: api + slack_bot + chromadb + dynamodb-local
+├── Makefile
+├── .env.example
+├── PROJECT_PLAN.md
 └── README.md
 ```
 
@@ -728,49 +714,40 @@ class RAGPipeline:
 ### Flow 1: Employee Asks a Question
 
 ```
-Employee (Browser)    Frontend       API           VectorService   LLMProvider
-     │                   │            │                 │               │
-     │──POST /message──→ │            │                 │               │
-     │                   │──POST /chat/sessions/{id}/message──────────→ │
-     │                   │            │                 │               │
-     │                   │            │──embed(question)─────────────→  │
-     │                   │            │←────────────────vector(384d)──  │
-     │                   │            │                 │               │
-     │                   │            │──search(vector, top_k=5)──────→ │
-     │                   │            │←────────────────[chunks+meta]── │
-     │                   │            │                 │               │
-     │                   │            │──stream(question + chunks)────────────────→
-     │                   │            │                 │               │
-     │←─────────SSE stream (text chunks)────────────────────────────────│
-     │                   │←─────────SSE stream──────── │               │
-     │                   │            │                 │               │
-     │←─────────SSE event: sources─── │                │               │
-     │                   │            │──save(Q+A to DynamoDB)          │
-     │←─────────SSE event: done────── │                │               │
+Employee (Slack)      Slack Bot (Bolt)    API           VectorService   LLMProvider
+     │                     │               │                 │               │
+     │─/kms <question>───→ │               │                 │               │
+     │←── ack (thinking)── │               │                 │               │
+     │                     │──POST /chat/sessions/{id}/message──────────────→ │
+     │                     │               │──embed(question)────────────────→
+     │                     │               │←───────────────vector(384d)─────
+     │                     │               │──search(vector, top_k=5)────────→
+     │                     │               │←───────────────[chunks+meta]────
+     │                     │               │──stream(question+context)──────────────────→
+     │                     │←─────────SSE chunks──────────────────────────────────────│
+     │                     │─── accumulate full answer ────────────────────────────── │
+     │                     │               │                 │               │
+     │←─Block Kit reply────│               │──save Q+A to DynamoDB          │
+     │  (answer + sources) │               │                 │               │
 ```
 
 ### Flow 2: Admin Uploads a Document
 
 ```
-Admin (Browser)      Frontend       API           S3          DynamoDB      ChromaDB
-     │                  │            │             │              │              │
-     │──Upload PDF───→  │            │             │              │              │
-     │                  │──POST /documents/upload──────────────→  │              │
-     │                  │            │─────────────upload file──→ │              │
-     │                  │            │←─────────────s3Key─────── │              │
-     │                  │            │──put_item(status=pending)──────────────→  │
-     │←─202 Accepted────│←────────── │             │              │              │
-     │                  │            │                            │              │
-     │                  │   [BackgroundTask starts]               │              │
-     │                  │            │─────────────get file────→  │              │
-     │                  │            │──update(status=processing)─────────────→  │
-     │                  │            │──parse PDF → chunks        │              │
-     │                  │            │──embed chunks              │              │
-     │                  │            │──────────────────────────────────upsert──→
-     │                  │            │──update(status=ready, chunkCount=N)─────→ │
-     │                  │            │             │              │              │
-     │ (polls GET /documents/{id} every 3s)        │              │              │
-     │←─status: ready───│            │             │              │              │
+Admin (Slack DM)     Slack Bot (Bolt)    API           S3          DynamoDB      ChromaDB
+     │                    │               │             │              │              │
+     │──DM: [PDF file]──→ │               │             │              │              │
+     │←─  "Processing.."─ │               │             │              │              │
+     │                    │──download file from Slack CDN────────────────────────────│
+     │                    │──POST /documents/upload───────────────────→ │              │
+     │                    │               │────────upload file────────→ │              │
+     │                    │               │──put_item(status=pending)──────────────→  │
+     │                    │←──202 Accepted───────────── │              │              │
+     │                    │   [BackgroundTask starts]   │              │              │
+     │                    │               │──parse PDF → chunk → embed │              │
+     │                    │               │──────────────────────────────────upsert──→
+     │                    │               │──update(status=ready)──────────────────→  │
+     │←─ "✅ Indexed (84 chunks)"─────────│              │              │              │
 ```
 
 ---
@@ -1004,9 +981,11 @@ HUGGINGFACE_API_KEY=hf_xxx       # free: huggingface.co/settings/tokens
 EMBEDDING_PROVIDER=local         # local (free) | openai
 # OPENAI_API_KEY=sk-...          # only if EMBEDDING_PROVIDER=openai
 
-# ── JWT ──────────────────────────────────────────────────────
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-REFRESH_TOKEN_EXPIRE_DAYS=7
+# ── Slack Bot ───────────────────────────────────────────────
+SLACK_BOT_TOKEN=xoxb-xxx               # OAuth Bot Token (Bot User OAuth Token)
+SLACK_APP_TOKEN=xapp-xxx               # App-Level Token (Socket Mode, scope: connections:write)
+SLACK_SIGNING_SECRET=xxx               # Found in Basic Information → App Credentials
+SLACK_WEBHOOK_URL=https://hooks.slack.com/...  # Incoming Webhook for deploy notifications
 
 # ── Seed Admin ───────────────────────────────────────────────
 ADMIN_EMAIL=admin@company.com    # created on first startup
@@ -1069,68 +1048,98 @@ make test-integration # requires docker-compose up
 
 ---
 
-## 16. Frontend Pages & Components
+## 16. Slack Bot — Interaction Spec
 
-### Pages
+### Setup (one-off, per Slack workspace)
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App → From Scratch**
+2. Name: `KMS Bot` | Workspace: your company Slack
+3. **Socket Mode** → Enable Socket Mode → Generate App-Level Token (scope: `connections:write`) → copy as `SLACK_APP_TOKEN`
+4. **OAuth & Permissions** → Bot Token Scopes: `app_mentions:read`, `chat:write`, `commands`, `files:read`, `im:history`, `im:write`
+5. Install App to Workspace → copy Bot User OAuth Token as `SLACK_BOT_TOKEN`
+6. **Slash Commands** → Create command `/kms` (Request URL can be anything with Socket Mode)
+7. **Event Subscriptions** → Subscribe to: `app_mention`, `message.im`
+8. **Incoming Webhooks** → Enable → Add to Workspace → pick `#kms-deploys` channel → copy URL as `SLACK_WEBHOOK_URL`
 
-| Route | Auth | Description |
-|-------|------|-------------|
-| `/login` | Public | Email + password form |
-| `/chat` | Employee | Main chat interface — the only page employees use |
-| `/admin` | **Admin only** | Knowledge base management: browse, preview, add, delete, reindex |
-| `/admin/users` | **Admin only** | User management |
+> All of the above is **free** on Slack's free plan.
+
+---
+
+### Slash Command: `/kms <question>`
+Available to all workspace members.
+
+**Interaction flow:**
+1. Employee types `/kms What is the SBP provisioning for a Substandard loan?`
+2. Bot immediately responds with `"Searching knowledge base..."` (ack within 3s Slack deadline)
+3. Bot calls `POST /api/v1/chat/sessions/{sessionId}/message` and accumulates SSE stream
+4. Bot updates the message with the full Block Kit reply
+
+**Block Kit reply format:**
+```
+┌───────────────────────────────────────────────┐
+│ 🧠 KMS Answer                               │
+│───────────────────────────────────────────────│
+│ According to SBP Prudential Regulations,      │
+│ a *Substandard* loan (180–269 days overdue)   │
+│ requires *25% provisioning*.                  │
+│───────────────────────────────────────────────│
+│ 📚 *Sources*                                  │
+│ • SBP_PR_SME_2025.pdf — p.14 (score: 0.91)  │
+│ • SBP_PR_Consumer.pdf — p.8  (score: 0.84)  │
+└───────────────────────────────────────────────┘
+```
+
+---
+
+### App Mention: `@kms-bot <question>`
+Same behaviour as `/kms`. Bot replies in the thread of the mention.
+
+---
+
+### Direct Message to Bot
+Any text DM to the bot — treated as `/kms <message>`.
+Bot replies in the same DM conversation.
+
+---
+
+### Admin Document Upload (DM a file)
+Only Slack users whose `userId` maps to an `admin` role in DynamoDB may upload.
+
+**Flow:**
+1. Admin DMs the bot a PDF/DOCX/MD/TXT file
+2. Bot verifies sender is admin via `GET /api/v1/auth/me` (using internal API key)
+3. If not admin: bot replies `❌ You don’t have permission to upload documents.`
+4. Bot downloads file from Slack CDN using `SLACK_BOT_TOKEN`
+5. Bot calls `POST /api/v1/documents/upload` with file + optional category from DM text
+6. Bot replies: `⏳ Processing SBP_SME_2025.pdf...`
+7. Bot polls `GET /api/v1/documents/{id}` every 5s (max 10 attempts)
+8. On `status=ready`: `✅ Indexed *SBP_SME_2025.pdf* — 84 chunks ready`
+9. On `status=failed`: `❌ Processing failed: {failureReason}`
+
+---
+
+### Admin Slash Command: `/kms-admin`
+Only usable by Slack users mapped to `admin` role.
+
+| Command | Action |
+|---------|--------|
+| `/kms-admin list` | Lists all documents in KB with status and chunk count |
+| `/kms-admin list --category sbp` | Filter by category |
+| `/kms-admin delete <documentId>` | Delete document + all chunks (asks confirmation first) |
+| `/kms-admin reindex <documentId>` | Re-runs ingestion for one document |
+| `/kms-admin users` | Lists all users and their roles |
+| `/kms-admin promote <email>` | Sets user role to `admin` |
+| `/kms-admin disable <email>` | Sets `isActive=false` for a user |
+
+---
 
 ### Knowledge Base Access Model
 
 | Action | Employee | Admin |
 |--------|----------|-------|
-| Use chat (ask questions) | ✅ | ✅ |
-| Browse / list documents in KB | ❌ | ✅ |
-| Search documents by title/category | ❌ | ✅ |
-| Preview document chunks (scroll) | ❌ | ✅ |
-| Upload / add new documents | ❌ | ✅ |
-| Delete documents | ❌ | ✅ |
-| Reindex a document | ❌ | ✅ |
-| Manage users (create, role, disable) | ❌ | ✅ |
-
-### Key Component Behaviours
-
-**`ChatMessage.tsx`**
-- Renders user message (right-aligned, blue)
-- Renders assistant message (left-aligned, white) with markdown
-- Streams text character-by-character as SSE chunks arrive
-- Shows "Thinking..." spinner during first chunk delay
-- Renders `SourceCard` components after text completes
-
-**`SourceCard.tsx`**
-- Collapsible card showing: doc title, category badge, relevance score (0–1), excerpt
-- Click to expand chunk text
-
-**`KBDocumentTable.tsx`** *(Admin — Knowledge Base Browser)*
-- Paginated table of all documents — **admin view only**
-- Columns: Title, Category, Status badge, Chunk Count, File Type, Uploaded By, Date
-- Filter bar: filter by category (SBP/HBL/Internal), status, file type
-- Search bar: searches document titles (client-side filter)
-- Each row: **Preview** button → opens `KBDocumentPreview` modal, **Delete** (with confirmation dialog), **Re-index** button
-
-**`KBDocumentPreview.tsx`** *(Admin — Chunk Viewer)*
-- Modal/panel that opens on Preview click (admin only)
-- Shows document metadata at top (title, category, source URL if public, processed date)
-- Scrollable list of all text chunks for that document
-- Each chunk shows: chunk index, page number (if PDF), chunk text (truncated to 3 lines, expand on click)
-- Allows admin to verify indexed content quality before employees use the chat
-
-**`UploadDropzone.tsx`**
-- Accepts: PDF, DOCX, MD, TXT — max 50MB
-- Shows: upload progress bar, file name, cancel button
-- On complete: polls `GET /documents/{id}` every 3 seconds
-- Shows status badge: `pending` → `processing` → `ready` or `failed` with error
-
-**`Sidebar.tsx`**
-- Lists all user's chat sessions sorted by most recent
-- "New Chat" button creates a new session
-- Active session highlighted
-- Each session shows auto-generated title (first 60 chars of first message)
+| Use `/kms` to ask questions | ✅ | ✅ |
+| Upload documents (DM file to bot) | ❌ | ✅ |
+| `/kms-admin list/delete/reindex` | ❌ | ✅ |
+| `/kms-admin users/promote/disable` | ❌ | ✅ |
 
 ---
 
