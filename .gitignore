@@ -1,0 +1,84 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# --- Node ---
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Environment ---
+.env
+.env.local
+.env.staging
+.env.production
+*.local
+
+# --- Terraform ---
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock.info
+.terraform.lock.hcl
+*.tfvars.secret
+crash.log
+override.tf
+override.tf.json
+
+# --- Docker ---
+.dockerignore
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+logs/
+*.log
+
+# --- Secrets ---
+*.pem
+*.key
+*.crt
+secrets/
+
+
+# --- Knowledgebase ---
+knowledge_base/
+# Knowledge base raw downloads (run seed script locally)
+knowledge_base/raw_docs/
+knowledge_base/metadata.json
+
+# Terraform
+infrastructure/terraform/.terraform/
+infrastructure/terraform/**/.terraform/
+infrastructure/terraform/**/*.tfstate
+infrastructure/terraform/**/*.tfstate.*
+infrastructure/terraform/**/*.tfplan
+infrastructure/terraform/**/.terraform.lock.hcl
+*.tfvars
+!*.tfvars.example
