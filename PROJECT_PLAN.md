@@ -107,11 +107,11 @@ An AI agent embedded as a chat widget on the Al Meezan website. Instead of simpl
  │(RAG) │ │fund_perf │ │            │ │(DynamoDB)  │
  └──────┘ └──────────┘ └────────────┘ └────────────┘
 
-     ┌────────────────────┐
-     │  Admin Panel       │
-     │  (FastAPI + HTML)  │
-     │  KB + Tickets +    │
-     │  Quality Dashboard │
+     ┌────────────────────┐     ┌────────────────┐
+     │  Admin Panel       │     │  Langfuse      │
+     │  (FastAPI + HTML)  │────▶│ (Observability │
+     │  KB + Tickets +    │     │  + Eval UI)    │
+     │  Quality Dashboard │     └────────────────┘
      └────────────────────┘
 ```
 
@@ -126,6 +126,7 @@ An AI agent embedded as a chat widget on the Al Meezan website. Instead of simpl
 | **ChromaDB** | ChromaDB container, EFS | Vector store for knowledge base |
 | **DynamoDB** | AWS DynamoDB (PAY_PER_REQUEST) | Conversations, tickets, users, documents metadata |
 | **S3** | AWS S3 | Raw uploaded documents |
+| **Langfuse** | Langfuse Cloud (Free Tier) | LLM Observability, prompt tracing, and eval score visualizer |
 | **Embeddings** | sentence-transformers (local) | 384-dim vectors, runs on Fargate CPU |
 | **AWS SES** | AWS Simple Email Service | Ticket confirmations, resolution emails, deploy alerts |
 
@@ -776,15 +777,12 @@ Server-rendered HTML pages served by FastAPI + Jinja2 templates. Simple, no Reac
 
 > To present a strong "MLOps / LLMOps" story, we avoid traditional model training and instead implement an **Agent Evaluation Pipeline** (the modern standard for LLM systems).
 
-### LLMOps: Automated Prompt & Tool Evaluation
+### LLMOps: Observability & Evaluation (Langfuse)
 
-Before deploying prompt changes to production, we must guarantee that the agent still calls the correct tools.
-1. **Golden Dataset**: A JSON file (`tests/eval/golden_dataset.json`) containing 50-100 test queries and their expected tool calls. (e.g., `{"query": "What's the NAV?", "expected_tool": "get_fund_nav"}`).
-2. **Evaluation Engine**: A script (`backend/scripts/evaluate_agent.py`) that runs the agent against the golden dataset.
-3. **Metrics Tracked**:
-   - **Tool Calling Accuracy**: % of times the correct tool was selected.
-   - **RAG Retrieval Score**: % of times the correct document was found in ChromaDB.
-   - **Latency**: P50 / P99 response times.
+We integrate **Langfuse Cloud** (Generative AI free tier: 100k events/mo) to provide a stunning visual MLOps dashboard:
+1. **Trace Logging**: Every LLM call is automatically logged to Langfuse with exact prompt, response, latency, and token cost.
+2. **Tool Execution Tracing**: Langfuse captures the exact payloads sent to and received from our 6 agent tools.
+3. **Golden Dataset Evaluation Engine**: A script (`backend/scripts/evaluate_agent.py`) runs the agent against `tests/eval/golden_dataset.json`. It logs the resulting accuracy scores (e.g. `tool_selection_accuracy`) directly to Langfuse.
 4. **CI/CD Integration**: The evaluation engine runs automatically on GitHub PRs. If tool accuracy drops below 90%, the PR is blocked.
 
 ### Quality Feedback Loop (Production)
@@ -794,7 +792,7 @@ Customer asks question
         ↓
 AI responds (logged in DynamoDB)
         ↓
-Admin reviews conversation in admin panel
+Admin reviews conversation in admin panel and clicks Langfuse Trace URL
         ↓
 Admin rates response: 👍 good / 👎 bad / ❌ incorrect
         ↓
@@ -1187,6 +1185,11 @@ ADMIN_EMAIL=admin@almeezan.com
 ADMIN_PASSWORD=change-me-now
 JWT_SECRET_KEY=<32-byte hex>
 JWT_EXPIRE_MINUTES=480           # 8 hours
+
+# ── Observability ────────────────────────────────────────────
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_HOST=https://us.cloud.langfuse.com
 
 
 ```

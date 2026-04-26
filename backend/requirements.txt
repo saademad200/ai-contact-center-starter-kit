@@ -46,3 +46,4 @@ httpx==0.28.1
 ruff==0.9.4
 mypy==1.14.1
 bandit==1.8.3
+\n# --- Observability ---\nlangfuse==2.53.9

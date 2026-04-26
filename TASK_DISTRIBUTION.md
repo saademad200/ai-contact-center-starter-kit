@@ -28,7 +28,7 @@
 ---
 
 ## Person 2 — AI Agent + ML Pipeline
-**Focus:** Agent orchestrator, tool calling, LLM service, embeddings, vector store, ingestion pipeline, knowledge base
+**Focus:** Agent orchestrator, tool calling, LLM service, embeddings, vector store, ingestion pipeline, knowledge base, Langfuse observability
 
 | Task | Plan Reference | Priority |
 |------|---------------|----------|
@@ -41,14 +41,14 @@
 | Implement `agent/tools/compare.py` — multi-fund comparison | §3, Tool 4 | P1 |
 | Implement `agent/tools/risk_profile.py` — risk scoring algorithm + fund recommendation | §3, Tool 5 | P0 |
 | Implement `agent/tools/escalate.py` — ticket creation + SES email trigger | §3, Tool 6 | P1 |
-| Implement `services/llm_service.py` — Groq client with tool calling support | §3 | P0 |
+| Implement `services/llm_service.py` — Groq client (instrumented with Langfuse tracing) | §3 | P0 |
 | Implement `services/embedding_service.py` — sentence-transformers (local, 384d) | §4 | P0 |
 | Implement `services/vector_service.py` — ChromaDB upsert, search, delete | §4 | P0 |
 | Implement `services/document_processor.py` — PDF/DOCX/MD parsing + chunking (512 tokens) | §4 | P0 |
 | Implement `pipeline/ingestion.py` — full pipeline: S3 → parse → chunk → embed → ChromaDB | §9 | P0 |
 | Write `knowledge_base/scripts/seed.py` — download Al Meezan + MUFAP + SECP docs | §4 | P0 |
 | Write fund data seeder — parse MUFAP NAV table → populate DynamoDB `funds` table | §4 | P0 |
-| Implment LLMOps Evaluation: create `tests/eval/golden_dataset.json` and `scripts/evaluate_agent.py` | §9 | P1 |
+| Implment LLMOps Evaluation: `scripts/evaluate_agent.py` to push scores to Langfuse | §9 | P1 |
 | Write unit tests (tools, orchestrator, risk profile, chunking, embeddings) | §14 | P1 |
 
 **Skills required:** LLM APIs (Groq/OpenAI tool calling), Python async, NLP (embeddings, chunking), ChromaDB, prompt engineering
