@@ -1,0 +1,32 @@
+[
+  {
+    "query": "What is the current NAV of Meezan Islamic Fund?",
+    "expected_tool": "get_fund_nav",
+    "required_args": ["Meezan Islamic Fund"]
+  },
+  {
+    "query": "How has the Meezan Gold Fund performed over the last year?",
+    "expected_tool": "get_fund_performance",
+    "required_args": ["Meezan Gold Fund", "1Y"]
+  },
+  {
+    "query": "I am thinking of putting money in MCF or MIIF, which one is better?",
+    "expected_tool": "compare_funds",
+    "required_args": ["Meezan Cash Fund", "Meezan Islamic Income Fund"]
+  },
+  {
+    "query": "I am 25 years old and want to invest for 10 years and can take high risk.",
+    "expected_tool": "assess_risk_profile",
+    "required_args": []
+  },
+  {
+    "query": "What are the tax benefits of investing in mutual funds in Pakistan?",
+    "expected_tool": "search_knowledge_base",
+    "required_args": ["tax benefits mutual funds Pakistan"]
+  },
+  {
+    "query": "I lost my account password, please help me reset it.",
+    "expected_tool": "escalate_to_human",
+    "required_args": []
+  }
+]

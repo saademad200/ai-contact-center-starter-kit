@@ -772,9 +772,22 @@ Server-rendered HTML pages served by FastAPI + Jinja2 templates. Simple, no Reac
 
 ---
 
-## 9. Quality & Data Pipeline
+## 9. LLMOps & Quality Pipeline
 
-### Quality Feedback Loop
+> To present a strong "MLOps / LLMOps" story, we avoid traditional model training and instead implement an **Agent Evaluation Pipeline** (the modern standard for LLM systems).
+
+### LLMOps: Automated Prompt & Tool Evaluation
+
+Before deploying prompt changes to production, we must guarantee that the agent still calls the correct tools.
+1. **Golden Dataset**: A JSON file (`tests/eval/golden_dataset.json`) containing 50-100 test queries and their expected tool calls. (e.g., `{"query": "What's the NAV?", "expected_tool": "get_fund_nav"}`).
+2. **Evaluation Engine**: A script (`backend/scripts/evaluate_agent.py`) that runs the agent against the golden dataset.
+3. **Metrics Tracked**:
+   - **Tool Calling Accuracy**: % of times the correct tool was selected.
+   - **RAG Retrieval Score**: % of times the correct document was found in ChromaDB.
+   - **Latency**: P50 / P99 response times.
+4. **CI/CD Integration**: The evaluation engine runs automatically on GitHub PRs. If tool accuracy drops below 90%, the PR is blocked.
+
+### Quality Feedback Loop (Production)
 
 ```
 Customer asks question
@@ -793,7 +806,7 @@ Admin dashboard shows quality trends:
   - tool_usage_distribution
   - escalation_rate
         ↓
-Team adjusts prompts/config in git → CI/CD deploys
+Team adjusts prompts/config and runs through the LLMOps Evaluation Pipeline
 ```
 
 ### KB Data Pipeline
@@ -812,8 +825,6 @@ Background task:
   6. Update DynamoDB status=ready
         ↓
 Validation: run 5 test queries against new collection, compare scores
-        ↓
-If quality drops > 10%: alert admin, rollback to previous collection snapshot
 ```
 
 ---
@@ -912,10 +923,15 @@ Project/                              ← monorepo root
 │   │   │   ├── test_orchestrator.py   ← Agent loop with mocked LLM
 │   │   │   ├── test_risk_profile.py   ← Risk scoring logic
 │   │   │   └── test_document_processor.py
-│   │   └── integration/
-│   │       ├── test_chat_ws.py        ← WebSocket chat flow
-│   │       ├── test_tickets.py
-│   │       └── test_documents.py
+│   │   ├── integration/
+│   │   │   ├── test_chat_ws.py        ← WebSocket chat flow
+│   │   │   ├── test_tickets.py
+│   │   │   └── test_documents.py
+│   │   └── eval/
+│   │       └── golden_dataset.json    ← LLMOps Evaluation Test Cases
+│   │
+│   ├── scripts/
+│   │   └── evaluate_agent.py          ← LLMOps Tool Evaluation Engine
 │   │
 │   ├── pyproject.toml
 │   └── requirements.txt

@@ -48,6 +48,7 @@
 | Implement `pipeline/ingestion.py` — full pipeline: S3 → parse → chunk → embed → ChromaDB | §9 | P0 |
 | Write `knowledge_base/scripts/seed.py` — download Al Meezan + MUFAP + SECP docs | §4 | P0 |
 | Write fund data seeder — parse MUFAP NAV table → populate DynamoDB `funds` table | §4 | P0 |
+| Implment LLMOps Evaluation: create `tests/eval/golden_dataset.json` and `scripts/evaluate_agent.py` | §9 | P1 |
 | Write unit tests (tools, orchestrator, risk profile, chunking, embeddings) | §14 | P1 |
 
 **Skills required:** LLM APIs (Groq/OpenAI tool calling), Python async, NLP (embeddings, chunking), ChromaDB, prompt engineering
@@ -181,7 +182,7 @@ Person 4 (Widget) ◄──── Person 3 (Backend API) ◄──── Person 
 | Person | Deliverable | Done when |
 |--------|------------|-----------|
 | P1 | Prod Terraform, prod deploy workflow, deploy to staging | Staging is live |
-| P2 | Prompt tuning, edge case handling, test 20 real queries, seed script finalized | 80%+ queries answered correctly |
+| P2 | Prompt tuning, edge case handling, seed script finalized, run LLMOps Evaluation (90%+ accuracy) | 80%+ queries answered correctly |
 | P3 | Error handling, integration tests, rate limiting | All tests green |
 | P4 | Responsive polish, auto-reconnect, demo.html landing page | Widget looks production-ready |
 | P5 | Dashboard stats, quality page (Chart.js), responsive polish | Admin panel looks professional |
