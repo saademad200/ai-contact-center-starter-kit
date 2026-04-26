@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Al Meezan Investments — Shariah-Compliant Asset Management</title>
+    <style>
+        /* Demo landing page — mimics an investment company website */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #006B3F 0%, #004D2C 100%);
+            color: white;
+            padding: 80px 40px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto 32px;
+        }
+
+        .funds {
+            padding: 60px 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .funds h2 {
+            color: #006B3F;
+            margin-bottom: 24px;
+        }
+
+        .fund-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .fund-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            transition: box-shadow 0.2s;
+        }
+
+        .fund-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .fund-card h3 {
+            color: #006B3F;
+            margin-bottom: 8px;
+        }
+
+        .fund-card .nav {
+            font-size: 1.4rem;
+            font-weight: bold;
+            margin: 8px 0;
+        }
+
+        .fund-card .returns {
+            color: #2e7d32;
+            font-weight: 500;
+        }
+
+        .cta {
+            background: #f5f5f5;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .cta h2 {
+            margin-bottom: 12px;
+        }
+
+        .cta p {
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="hero">
+        <h1>Al Meezan Investments</h1>
+        <p>Pakistan's largest Shariah-compliant asset management company. Invest with confidence in ethical, Halal
+            funds.</p>
+        <p style="opacity: 0.7; font-size: 0.9rem;">💬 Need help? Click the chat icon in the bottom-right corner.</p>
+    </div>
+
+    <div class="funds">
+        <h2>Our Funds</h2>
+        <div class="fund-grid">
+            <div class="fund-card">
+                <h3>Meezan Islamic Fund</h3>
+                <p>Equity Fund — High Growth Potential</p>
+                <div class="nav">PKR 45.23</div>
+                <div class="returns">YTD: +18.5%</div>
+            </div>
+            <div class="fund-card">
+                <h3>Meezan Islamic Income Fund</h3>
+                <p>Income Fund — Stable Returns</p>
+                <div class="nav">PKR 12.87</div>
+                <div class="returns">YTD: +9.2%</div>
+            </div>
+            <div class="fund-card">
+                <h3>Meezan Cash Fund</h3>
+                <p>Money Market — Capital Preservation</p>
+                <div class="nav">PKR 102.45</div>
+                <div class="returns">YTD: +11.1%</div>
+            </div>
+            <div class="fund-card">
+                <h3>Meezan Balanced Fund</h3>
+                <p>Balanced — Growth + Income Mix</p>
+                <div class="nav">PKR 28.16</div>
+                <div class="returns">YTD: +14.3%</div>
+            </div>
+            <div class="fund-card">
+                <h3>Meezan Gold Fund</h3>
+                <p>Commodity — Gold-Backed Investment</p>
+                <div class="nav">PKR 18.92</div>
+                <div class="returns">YTD: +22.7%</div>
+            </div>
+            <div class="fund-card">
+                <h3>Meezan Dedicated Equity Fund</h3>
+                <p>Equity — Focused Portfolio</p>
+                <div class="nav">PKR 8.54</div>
+                <div class="returns">YTD: +16.8%</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="cta">
+        <h2>Start Your Investment Journey</h2>
+        <p>Open a digital account in minutes. Ask our AI assistant for guidance on the right fund for your risk profile.
+        </p>
+    </div>
+
+    <!-- Al Meezan AI Chat Widget -->
+    <script src="widget.js"></script>
+    <script>
+        AlMeezanChat.init({
+            apiUrl: "ws://localhost:8000/api/v1/chat/ws",
+            theme: "dark",
+            position: "bottom-right",
+            greeting: "Assalam o Alaikum! I'm the Al Meezan AI assistant. I can help you with fund information, performance data, risk profiling, and account queries. How can I assist you today?"
+        });
+    </script>
+</body>
+
+</html>

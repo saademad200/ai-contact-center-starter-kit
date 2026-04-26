@@ -1,10 +1,16 @@
 """
-DynamoDB Local Table Bootstrap
-==============================
-CLI script — run inside Docker for local dev:
-    docker compose exec api python -m app.core.dynamo_init
+DynamoDB Table Initializer (CLI script)
+========================================
+See PROJECT_PLAN.md §5 for all table schemas.
 
-Creates all 4 tables in DynamoDB Local with correct key schemas and GSIs.
-See PROJECT_PLAN.md §6 for full schema definitions.
-Does nothing if tables already exist (idempotent).
+Usage: python -m app.core.dynamo_init
+
+Creates all 7 tables in DynamoDB Local for development:
+- acc-{env}-funds
+- acc-{env}-conversations
+- acc-{env}-messages
+- acc-{env}-tickets
+- acc-{env}-documents
+- acc-{env}-users (+ EmailIndex GSI)
+- acc-{env}-response-ratings
 """

@@ -1,144 +1,52 @@
+# Terraform — See PROJECT_PLAN.md §12
 name: Terraform
-
 on:
   push:
     branches: [infrastructure]
-  pull_request:
-    branches: [infrastructure]
+    paths: ['infrastructure/terraform/**']
   workflow_dispatch:
     inputs:
-      environment:
-        description: "Environment to apply (staging | prod)"
-        required: true
-        type: choice
-        options: [staging, prod]
       action:
-        description: "Terraform action"
+        description: 'Terraform action'
         required: true
+        default: plan
         type: choice
         options: [plan, apply]
+      environment:
+        description: 'Target environment'
+        required: true
+        default: staging
+        type: choice
+        options: [staging, prod]
 
 permissions:
   id-token: write
   contents: read
-  pull-requests: write   # to comment plan on PR
-
-env:
-  TF_WORKING_DIR: infrastructure/terraform
-  AWS_REGION: us-east-1
-  TF_VERSION: "1.8.0"
+  pull-requests: write
 
 jobs:
-  validate:
+  terraform:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'staging' }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: ${{ env.TF_VERSION }}
+          terraform_version: 1.9.0
 
-      - name: Terraform Format Check
-        run: terraform fmt -check -recursive
-        working-directory: ${{ env.TF_WORKING_DIR }}
-
-      - name: Terraform Validate (Staging)
-        working-directory: ${{ env.TF_WORKING_DIR }}/environments/staging
-        run: |
-          terraform init -backend=false
-          terraform validate
-
-      - name: Terraform Validate (Prod)
-        working-directory: ${{ env.TF_WORKING_DIR }}/environments/prod
-        run: |
-          terraform init -backend=false
-          terraform validate
-
-  plan:
-    needs: validate
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
-
-    strategy:
-      matrix:
-        environment: [staging, prod]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (OIDC)
+      - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/kms-terraform-plan
-          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-
-      - name: Terraform Init (${{ matrix.environment }})
-        working-directory: ${{ env.TF_WORKING_DIR }}/environments/${{ matrix.environment }}
-        run: terraform init
-
-      - name: Terraform Plan (${{ matrix.environment }})
-        id: plan
-        working-directory: ${{ env.TF_WORKING_DIR }}/environments/${{ matrix.environment }}
-        run: |
-          terraform plan -out=${{ matrix.environment }}.tfplan -no-color 2>&1 | tee plan_output.txt
-
-      - name: Upload plan artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan-${{ matrix.environment }}-${{ github.sha }}
-          path: ${{ env.TF_WORKING_DIR }}/environments/${{ matrix.environment }}/${{ matrix.environment }}.tfplan
-
-      - name: Comment plan on PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const plan = fs.readFileSync(
-              '${{ env.TF_WORKING_DIR }}/environments/${{ matrix.environment }}/plan_output.txt', 'utf8'
-            );
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## Terraform Plan — \`${{ matrix.environment }}\`\n\`\`\`\n${plan.slice(0,65000)}\n\`\`\``
-            })
-
-  apply:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'
-    environment: ${{ github.event.inputs.environment }}   # requires manual approval
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/kms-terraform-apply
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-
-      - name: Download plan artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan-${{ github.event.inputs.environment }}-${{ github.sha }}
-          path: ${{ env.TF_WORKING_DIR }}/environments/${{ github.event.inputs.environment }}/
-
-      - name: Terraform Init
-        working-directory: ${{ env.TF_WORKING_DIR }}/environments/${{ github.event.inputs.environment }}
-        run: terraform init
+      - run: terraform init
+      - run: terraform validate
+      - run: terraform plan -out=tfplan
 
       - name: Terraform Apply
-        working-directory: ${{ env.TF_WORKING_DIR }}/environments/${{ github.event.inputs.environment }}
-        run: terraform apply ${{ github.event.inputs.environment }}.tfplan
+        if: github.event.inputs.action == 'apply'
+        run: terraform apply -auto-approve tfplan

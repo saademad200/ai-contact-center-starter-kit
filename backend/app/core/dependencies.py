@@ -1,8 +1,10 @@
 """
 FastAPI Dependencies
-====================
-get_current_user  — verifies Bearer JWT, returns user dict from DynamoDB
-                    raises HTTP 401 if token invalid/expired
-require_admin     — calls get_current_user, then checks role == "admin"
-                    raises HTTP 403 if role != admin
+=====================
+See PROJECT_PLAN.md §8 for admin panel access model.
+
+Provides:
+- get_current_user(token) → UserDict (from JWT in cookie or Authorization header)
+- require_admin(user) → raises 403 if role != "admin"
+- require_agent_or_admin(user) → raises 403 if role not in ("admin", "agent")
 """

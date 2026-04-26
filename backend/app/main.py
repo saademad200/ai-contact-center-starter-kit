@@ -1,13 +1,13 @@
 """
-KMS API Entry Point
-===================
-FastAPI application factory.
+FastAPI Application Factory
+============================
+See PROJECT_PLAN.md §10 for full specification.
 
-Responsibilities (see PROJECT_PLAN.md §7 API Contract):
-- Create FastAPI app with title, version, CORS middleware
-- Register routers: auth, documents, chat, admin
-- Lifespan events: init DynamoDB tables, load embedding model, connect ChromaDB
-- Health endpoint: GET /health
-
-Team: implement this file per the spec in PROJECT_PLAN.md
+Responsibilities:
+- Create FastAPI app with lifespan events
+- Mount all routers under /api/v1
+- Serve admin panel at /admin
+- Serve static files (widget) at /static
+- Configure CORS for chat widget origins
+- Health check at GET /health
 """

@@ -1,67 +1,73 @@
-# Internal Banking Knowledge Management System (KMS)
+# AI Contact Centre for Investment Banking
 ## Complete Project Plan — Team Reference Document
 
-**Version:** 1.0 | **Status:** Approved for Development | **Date:** April 2026
+**Domain:** Al Meezan Investments (Pakistan's largest Islamic asset management company)
+**Version:** 1.0 | **Date:** April 2026
 **Audience:** All engineering team members, QA, DevOps
 
-> This document is the **single source of truth** for building the KMS platform.
-> A developer reading only this document should be able to build their assigned module correctly.
+> An AI-powered customer support agent for an investment management company.
+> Customers interact via a website chat widget. The AI agent uses **tool calling**
+> (not just RAG) to answer questions about funds, NAVs, performance, risk profiling,
+> and account services — escalating to human agents when needed.
 
 ---
 
 ## Table of Contents
 
-1. [Problem Statement & Goals](#1-problem-statement--goals)
+1. [Problem & Solution](#1-problem--solution)
 2. [System Architecture](#2-system-architecture)
-3. [Repository Structure](#3-repository-structure)
-4. [Branch & Environment Strategy](#4-branch--environment-strategy)
-5. [Knowledge Base Design (Two-Layer)](#5-knowledge-base-design-two-layer)
-6. [Data Models (DynamoDB Schemas)](#6-data-models-dynamodb-schemas)
-7. [API Contract (All Endpoints)](#7-api-contract-all-endpoints)
-8. [Core Service Interfaces](#8-core-service-interfaces)
-9. [Key System Flows (Sequence Diagrams)](#9-key-system-flows-sequence-diagrams)
-10. [Infrastructure (Terraform)](#10-infrastructure-terraform)
-11. [CI/CD Pipelines (GitHub Actions)](#11-cicd-pipelines-github-actions)
-12. [Code Quality & Pre-commit Hooks](#12-code-quality--pre-commit-hooks)
-13. [Testing Strategy](#13-testing-strategy)
-14. [Environment Variables Reference](#14-environment-variables-reference)
-15. [Local Development Setup](#15-local-development-setup)
-16. [Slack Bot — Interaction Spec](#16-slack-bot--interaction-spec)
-17. [Deployment Guide](#17-deployment-guide)
+3. [AI Agent — Tool Calling Design](#3-ai-agent--tool-calling-design)
+4. [Knowledge Base (Al Meezan + SECP + MUFAP)](#4-knowledge-base)
+5. [Data Models (DynamoDB Schemas)](#5-data-models-dynamodb-schemas)
+6. [API Contract (All Endpoints)](#6-api-contract-all-endpoints)
+7. [Chat Widget (Embeddable JS)](#7-chat-widget-embeddable-js)
+8. [Admin Panel (Web UI)](#8-admin-panel-web-ui)
+9. [MLOps Pipeline](#9-mlops-pipeline)
+10. [Repository Structure](#10-repository-structure)
+11. [Infrastructure (Terraform Guide)](#11-infrastructure-terraform-guide)
+12. [CI/CD Pipelines (GitHub Actions)](#12-cicd-pipelines-github-actions)
+13. [Code Quality & Pre-commit Hooks](#13-code-quality--pre-commit-hooks)
+14. [Testing Strategy](#14-testing-strategy)
+15. [Environment Variables Reference](#15-environment-variables-reference)
+16. [Local Development Setup](#16-local-development-setup)
+
 
 ---
 
-## 1. Problem Statement & Goals
+## 1. Problem & Solution
 
 ### Problem
-A software company building niche banking applications for Pakistani banks needs employees to quickly answer two types of questions:
+Al Meezan Investments receives thousands of customer queries monthly across phone, email, and walk-ins. Most questions are repetitive:
+- "What's the current NAV of Meezan Islamic Fund?"
+- "Which fund is best for my risk profile?"
+- "How do I open an account?"
+- "What's my fund's YTD return?"
+- "Is this fund Shariah-compliant?"
 
-**Type A — Domain questions:**
-> "What is the SBP provisioning requirement for a Substandard loan?"
-> "What documents are required for SME financing under SBP regulations?"
-
-**Type B — Application questions:**
-> "How does the loan rescheduling workflow work in our system?"
-> "What API does the payment module call for IBFT transactions?"
-
-Currently employees search Confluence, PDFs, and ask seniors — slow and inconsistent.
 
 ### Solution
-An internal RAG-based chat system where employees describe their question in plain English and receive an accurate, sourced answer drawn from:
-- SBP regulatory documents (Layer 1)
-- HBL public annual reports as banking domain reference (Layer 2)
-- Internal application documentation uploaded by admins (Layer 3)
+An AI agent embedded as a chat widget on the Al Meezan website. Instead of simple Q&A, the agent has **tools** it can invoke:
 
-### Non-Goals (out of scope for v1)
-- Real-time data (stock prices, live rates)
-- Code generation
-- Multi-language support (English only)
-- Customer-facing deployment
+| Customer says | Agent action | Tool invoked |
+|---------------|-------------|-------------|
+| "What's the NAV of Meezan Islamic Fund?" | Looks up current NAV | `get_fund_nav` |
+| "Compare MIF vs MIIF" | Generates comparison table | `compare_funds` |
+| "I'm 30, moderate income, 15-year horizon" | Runs risk assessment | `assess_risk_profile` |
+| "How do I open a digital account?" | Searches knowledge base | `search_knowledge_base` |
+| "I need to speak to someone about my complaint" | Creates ticket, routes to agent | `escalate_to_human` |
+| "What are the tax implications of CGT?" | Searches SECP regulations | `search_knowledge_base` |
+
+### Non-Goals (v1)
+- Real-time NAV from live API (we use daily-refreshed data from MUFAP)
+- Account login / portfolio view (requires core banking integration)
+- Transaction execution (buy/sell/switch)
+- Multi-language (English only)
 
 ### Success Criteria
-- Employee asks question → receives answer with source citation in < 10 seconds
-- Answer correctly cites relevant SBP regulation or internal SOP
-- Admin uploads a PDF → searchable within 5 minutes
+- 60% of queries auto-resolved without human agent
+- Response time < 8 seconds including tool call
+- Risk profiling conversation completes in < 5 exchanges
+- Admin can add new FAQ document → searchable within 5 minutes
 
 ---
 
@@ -70,268 +76,446 @@ An internal RAG-based chat system where employees describe their question in pla
 ### High-Level Architecture
 
 ```
-┌───────────────────────────────────────────────────────────────┐
-│                    Employees (Slack)                           │
-│    /kms <question>  |  @kms-bot <question>  |  DM bot         │
-└───────────────────────────┬───────────────────────────────────┘
-                            │ Socket Mode (WebSocket, free plan)
+┌──────────────────────────────────────────────────────────────────┐
+│                Customer (Browser)                                 │
+│  <script src="https://yourcdn/widget.js"></script>                │
+│  Chat widget appears bottom-right of any page                     │
+└───────────────────────────┬──────────────────────────────────────┘
+                            │ WebSocket (wss://)
                 ┌───────────▼───────────┐
-                │   Slack Bot (Bolt)     │
-                │   Python, ECS Fargate  │
+                │     API Service       │
+                │  FastAPI + WebSocket  │
+                │  ECS Fargate          │
                 └───────────┬───────────┘
-                            │ HTTP → internal ALB
-                ┌───────────▼───────────┐
-                │     API Service        │
-                │  FastAPI :8000         │
-                │  ECS Fargate           │
-                └───────┬───────────────┘
-                        │
-        ┌───────────────┼───────────────┐
-        ▼               ▼               ▼
-┌──────────────┐ ┌────────────┐ ┌──────────────────┐
-│ AWS DynamoDB │ │   AWS S3   │ │    ChromaDB       │
-│ (metadata)   │ │ (raw docs) │ │  (vector store)   │
-│              │ │            │ │  ECS + EFS volume │
-└──────────────┘ └────────────┘ └────────┬─────────┘
-                                         │ similarity search
-                                   ┌─────▼──────┐
-                                   │ Groq API   │
-                                   │ Llama 3.1  │
-                                   └────────────┘
+                            │
+              ┌─────────────┼──────────────────────┐
+              │             │                      │
+              ▼             ▼                      ▼
+     ┌────────────┐  ┌────────────┐   ┌────────────────────┐
+     │ AI Agent   │  │ DynamoDB   │   │    ChromaDB        │
+     │ (Groq LLM  │  │ (metadata  │   │  (vector store)    │
+     │  + Tools)  │  │  + tickets │   │  ECS + EFS volume  │
+     └─────┬──────┘  │  + convos) │   └────────────────────┘
+           │         └────────────┘
+           │ Tool calls
+     ┌─────┼─────────────────────────────────┐
+     │     │              │                   │
+     ▼     ▼              ▼                   ▼
+ ┌──────┐ ┌──────────┐ ┌────────────┐ ┌────────────┐
+ │search│ │get_nav   │ │risk_profile│ │ escalate   │
+ │  KB  │ │compare   │ │            │ │ to human   │
+ │(RAG) │ │fund_perf │ │            │ │(DynamoDB)  │
+ └──────┘ └──────────┘ └────────────┘ └────────────┘
+
+     ┌────────────────────┐
+     │  Admin Panel       │
+     │  (FastAPI + HTML)  │
+     │  KB + Tickets +    │
+     │  Quality Dashboard │
+     └────────────────────┘
 ```
 
 ### Component Responsibilities
 
 | Component | Technology | Responsibility |
 |-----------|-----------|----------------|
-| **API Service** | FastAPI (Python 3.11), ECS Fargate | All business logic, RAG, auth |
-| **Slack Bot** | Slack Bolt (Python), ECS Fargate, Socket Mode | Employee chat interface, admin file upload |
-| **DynamoDB** | AWS DynamoDB (PAY_PER_REQUEST) | Users, sessions, documents metadata, messages |
-| **S3** | AWS S3 | Raw uploaded files (PDFs, DOCX, MD) |
-| **ChromaDB** | ChromaDB container, EFS volume | Text chunk embeddings + similarity search |
-| **Embeddings** | sentence-transformers MiniLM (local) | Convert text to 384-dim vectors, free |
-| **LLM** | Groq API (Llama 3.1 70B, default) | Answer generation from retrieved context |
-| **ALB** | AWS Application Load Balancer (internal) | Routes Slack bot → API |
-| **Slack** | Free Slack workspace | No cost — Incoming Webhooks + Socket Mode both free |
+| **API Service** | FastAPI, ECS Fargate | WebSocket chat, REST API, agent orchestration, auth |
+| **AI Agent** | Groq API (Llama 3.1 70B) | Tool calling, intent detection, response generation |
+| **Chat Widget** | Vanilla JS (embeddable) | Customer-facing chat interface |
+| **Admin Panel** | FastAPI + Jinja2 templates | KB management, ticket review, quality dashboard |
+| **ChromaDB** | ChromaDB container, EFS | Vector store for knowledge base |
+| **DynamoDB** | AWS DynamoDB (PAY_PER_REQUEST) | Conversations, tickets, users, documents metadata |
+| **S3** | AWS S3 | Raw uploaded documents |
+| **Embeddings** | sentence-transformers (local) | 384-dim vectors, runs on Fargate CPU |
+| **AWS SES** | AWS Simple Email Service | Ticket confirmations, resolution emails, deploy alerts |
 
 ---
 
-## 3. Repository Structure
+## 3. AI Agent — Tool Calling Design
+
+### How Tool Calling Works
+
+Groq's Llama 3.1 70B supports native tool/function calling. The LLM doesn't just generate text — it decides **which tool(s) to invoke** based on the customer's message, calls them, gets results, and then generates a natural language response incorporating the tool output.
 
 ```
-Project/                              ← monorepo root
-│
-├── .github/
-│   ├── pull_request_template.md      ← PR checklist
-│   └── workflows/
-│       ├── ci.yml                    ← runs on ALL branches (lint + unit tests)
-│       ├── staging.yml               ← push to staging → deploy ECS staging
-│       ├── prod.yml                  ← push to main → deploy ECS prod (approval)
-│       └── terraform.yml             ← push to infrastructure → tf plan/apply
-│
-├── infrastructure/
-│   ├── docker/
-│   │   ├── Dockerfile.api            ← multi-stage, Python 3.11-slim
-│   │   └── Dockerfile.frontend       ← multi-stage, Node 20-alpine
-│   └── terraform/
-│       ├── backend.tf                ← S3 remote state + DynamoDB lock
-│       └── modules/
-│       │   ├── vpc/                  ← VPC, subnets, IGW, NAT, security groups
-│       │   ├── ecs/                  ← Fargate cluster, task defs, ALB, services
-│       │   ├── dynamodb/             ← All 4 tables with GSIs
-│       │   ├── s3/                   ← Document bucket + lifecycle rules
-│       │   └── iam/                  ← Task roles, GitHub OIDC role
-│       └── environments/
-│           ├── staging/              ← Fargate 0.25vCPU/0.5GB, 1 task
-│           └── prod/                 ← Fargate 0.5vCPU/1GB, 2 tasks, PITR on
-│
-├── backend/                          ← FastAPI application (Python 3.11)
-│   ├── app/
-│   │   ├── main.py                   ← App factory, routers, CORS, lifespan events
-│   │   ├── core/
-│   │   │   ├── config.py             ← All settings via pydantic-settings
-│   │   │   ├── dynamo.py             ← Boto3 DynamoDB client + table helpers
-│   │   │   ├── dynamo_init.py        ← CLI script: create tables in DynamoDB Local
-│   │   │   ├── security.py           ← JWT sign/verify, bcrypt hash/verify
-│   │   │   ├── logging.py            ← structlog JSON logger
-│   │   │   └── dependencies.py       ← FastAPI deps: get_current_user, require_admin
-│   │   │
-│   │   ├── modules/                  ← Feature modules (router + service + schemas)
-│   │   │   ├── auth/
-│   │   │   │   ├── router.py         ← POST /auth/login, /auth/refresh, GET /auth/me
-│   │   │   │   ├── service.py        ← AuthService: login, create_user, verify_token
-│   │   │   │   └── schemas.py        ← LoginRequest, TokenResponse, UserResponse
-│   │   │   ├── documents/
-│   │   │   │   ├── router.py         ← POST /documents/upload, GET /documents, DELETE /documents/{id}
-│   │   │   │   ├── service.py        ← DocumentService: upload to S3, track in DynamoDB
-│   │   │   │   └── schemas.py        ← DocumentUploadResponse, DocumentStatus, DocumentItem
-│   │   │   ├── chat/
-│   │   │   │   ├── router.py         ← POST /chat/sessions, POST /chat/message (SSE), GET /chat/sessions
-│   │   │   │   ├── service.py        ← ChatService: create session, save message, get history
-│   │   │   │   └── schemas.py        ← ChatMessage, ChatSession, ChatRequest, Source
-│   │   │   └── admin/
-│   │   │       ├── router.py         ← GET /admin/users, PATCH /admin/users/{id}, POST /admin/reindex
-│   │   │       └── service.py        ← AdminService: user management, reindex trigger
-│   │   │
-│   │   ├── services/                 ← Shared infrastructure services
-│   │   │   ├── embedding_service.py  ← EmbeddingService (sentence-transformers, local)
-│   │   │   ├── vector_service.py     ← VectorService (ChromaDB CRUD + search)
-│   │   │   ├── llm_service.py        ← BaseLLMProvider + GroqProvider + HuggingFaceProvider
-│   │   │   ├── document_processor.py ← Parse PDF/DOCX/MD → List[Chunk]
-│   │   │   └── storage_service.py    ← S3 upload, download, presign URL
-│   │   │
-│   │   └── pipeline/
-│   │       ├── ingestion_pipeline.py ← Orchestrator: S3→parse→chunk→embed→ChromaDB
-│   │       └── rag_pipeline.py       ← Orchestrator: query→embed→search→LLM→stream
-│   │
-│   ├── tests/
-│   │   ├── conftest.py               ← fixtures, mock DynamoDB, mock ChromaDB, test client
-│   │   ├── unit/
-│   │   │   ├── test_document_processor.py  ← chunk splitting logic
-│   │   │   ├── test_embedding_service.py   ← embedding shape/type assertions
-│   │   │   ├── test_llm_service.py         ← provider switching, prompt building
-│   │   │   ├── test_rag_pipeline.py        ← RAG flow with mocked services
-│   │   │   └── test_security.py            ← JWT sign/verify, bcrypt round-trip
-│   │   └── integration/
-│   │       ├── test_auth.py          ← login, refresh, me, unauthorized access
-│   │       ├── test_documents.py     ← upload, status polling, delete
-│   │       ├── test_chat.py          ← session CRUD, message, SSE stream
-│   │       └── test_admin.py         ← user list, role update, reindex
-│   │
-│   ├── pyproject.toml                ← ruff + mypy + bandit + pytest config
-│   └── requirements.txt
-│
-├── slack_bot/                        ← Slack Bolt app (Python, Socket Mode)
-│   ├── main.py                       ← App entry point, SocketModeHandler
-│   ├── handlers/
-│   │   ├── ask.py                    ← /kms + @mention + DM → RAG API → Block Kit reply
-│   │   ├── upload.py                 ← Admin DMs a file → POST /documents/upload
-│   │   └── admin.py                  ← /kms-admin list|delete|reindex (admin only)
-│   └── requirements.txt              ← slack-bolt, httpx
-│
-├── knowledge_base/
-│   ├── scripts/
-│   │   └── seed_knowledge_base.py    ← Download SBP + HBL public documents
-│   └── raw_docs/                     ← Downloaded PDFs land here (gitignored)
-│       ├── sbp/
-│       └── hbl/
-│
-├── .pre-commit-config.yaml
-├── docker-compose.yml                ← Local: api + slack_bot + chromadb + dynamodb-local
-├── Makefile
-├── .env.example
-├── PROJECT_PLAN.md
-└── README.md
+Customer: "What's the current NAV of Meezan Islamic Fund and how has it performed this year?"
+
+LLM thinks: I need two tools — get_fund_nav and get_fund_performance
+
+Tool call 1: get_fund_nav(fund_name="Meezan Islamic Fund")
+→ Returns: { nav: 45.23, date: "2026-04-25", currency: "PKR" }
+
+Tool call 2: get_fund_performance(fund_name="Meezan Islamic Fund", period="ytd")
+→ Returns: { ytd: 18.5, mtd: 2.1, "1y": 22.3, "3y": 45.7 }
+
+LLM generates: "The current NAV of Meezan Islamic Fund is PKR 45.23 (as of April 25, 2026).
+Year-to-date, the fund has returned 18.5%, and its 1-year return is 22.3%.
+Would you like me to compare this with other equity funds?"
+```
+
+### Tool Definitions
+
+Each tool is a Python function the agent can invoke. The LLM receives the function schema (name, description, parameters) and decides when to call it.
+
+---
+
+#### Tool 1: `search_knowledge_base`
+```python
+def search_knowledge_base(query: str, category: str | None = None, top_k: int = 5) -> list[dict]:
+    """
+    Search the Al Meezan knowledge base using semantic similarity (RAG).
+    Use this for general questions about account opening, processes, Shariah compliance,
+    SECP regulations, fee structures, and any procedural queries.
+
+    Args:
+        query: The customer's question in natural language
+        category: Optional filter — "faq", "fund_docs", "secp", "process"
+        top_k: Number of relevant chunks to return (default 5)
+
+    Returns:
+        List of { text, source_document, page_number, score }
+    """
+```
+
+**When LLM should use this:** Account opening, KYC process, Shariah compliance, tax rules, fee structures, general FAQs — anything factual that's in the knowledge base documents.
+
+---
+
+#### Tool 2: `get_fund_nav`
+```python
+def get_fund_nav(fund_name: str) -> dict:
+    """
+    Get the latest Net Asset Value (NAV) for an Al Meezan fund.
+    NAV data is refreshed daily from MUFAP.
+
+    Args:
+        fund_name: Full or partial fund name (e.g. "Meezan Islamic Fund" or "MIF")
+
+    Returns:
+        { fund_name, ticker, nav, nav_date, fund_category, management_fee_pct }
+    """
+```
+
+**When LLM should use this:** "What's the NAV of...", "How much is one unit of...", "current price of..."
+
+**Data source:** MUFAP daily NAV table, stored in DynamoDB `funds` table, refreshed daily via a scheduled Lambda or ECS scheduled task.
+
+---
+
+#### Tool 3: `get_fund_performance`
+```python
+def get_fund_performance(fund_name: str, period: str = "all") -> dict:
+    """
+    Get performance metrics for an Al Meezan fund.
+
+    Args:
+        fund_name: Full or partial fund name
+        period: "1d", "1w", "1m", "3m", "6m", "ytd", "1y", "3y", "5y", or "all"
+
+    Returns:
+        { fund_name, ticker, returns: { "1d": 0.1, "1m": 1.2, "ytd": 18.5, ... },
+          benchmark, category_avg, fund_rating, risk_level }
+    """
+```
+
+**When LLM should use this:** "How has... performed?", "What's the return on...", "Is MIF doing better than..."
+
+---
+
+#### Tool 4: `compare_funds`
+```python
+def compare_funds(fund_names: list[str], metrics: list[str] | None = None) -> dict:
+    """
+    Compare 2-4 Al Meezan funds side-by-side.
+
+    Args:
+        fund_names: List of 2-4 fund names to compare
+        metrics: Optional list of specific metrics — defaults to all
+                 Options: "nav", "returns", "risk", "fees", "category", "rating"
+
+    Returns:
+        { comparison_table: [ { fund_name, nav, ytd, 1y, 3y, risk_level, fee, rating } ] }
+    """
+```
+
+**When LLM should use this:** "Compare MIF and MIIF", "Which equity fund is better?", "Difference between..."
+
+---
+
+#### Tool 5: `assess_risk_profile`
+```python
+def assess_risk_profile(
+    age: int,
+    monthly_income_pkr: int,
+    investment_horizon_years: int,
+    risk_tolerance: str,  # "low", "medium", "high"
+    existing_investments: str | None = None,
+    investment_goal: str | None = None
+) -> dict:
+    """
+    Assess investor's risk profile and suggest fund allocation.
+    Based on SECP investor suitability guidelines.
+
+    Args:
+        age: Investor's age
+        monthly_income_pkr: Monthly income in PKR
+        investment_horizon_years: How long they plan to invest
+        risk_tolerance: Self-assessed risk tolerance
+        existing_investments: Description of current investments (optional)
+        investment_goal: "retirement", "education", "wealth_growth", "income" (optional)
+
+    Returns:
+        {
+          risk_profile: "Conservative" | "Moderate" | "Aggressive",
+          risk_score: 1-10,
+          suggested_allocation: {
+            "equity": 20, "income": 50, "money_market": 30
+          },
+          recommended_funds: [
+            { name: "Meezan Islamic Fund", allocation_pct: 20, reason: "..." },
+            { name: "Meezan Islamic Income Fund", allocation_pct: 50, reason: "..." },
+            { name: "Meezan Cash Fund", allocation_pct: 30, reason: "..." }
+          ],
+          disclaimer: "This is for informational purposes only..."
+        }
+    """
+```
+
+**When LLM should use this:** The LLM first asks the customer a series of questions (age, income, horizon, risk tolerance) through conversation, then calls this tool with collected data. This creates a **guided multi-turn conversation**.
+
+**Example conversation:**
+```
+Customer: "I want to invest, which fund should I choose?"
+Agent: "I'd be happy to help! Let me understand your profile first.
+        How old are you and what's your approximate monthly income?"
+Customer: "I'm 32, I earn about PKR 200,000 per month"
+Agent: "Great. How long do you plan to stay invested? And would you say
+        your risk tolerance is low, medium, or high?"
+Customer: "10 years, medium risk I'd say"
+Agent: [calls assess_risk_profile(age=32, monthly_income_pkr=200000,
+        investment_horizon_years=10, risk_tolerance="medium")]
+Agent: "Based on your profile, you have a **Moderate** risk profile (score: 6/10).
+        Here's a suggested allocation:
+        • 40% Equity → Meezan Islamic Fund (MIF) — strong long-term growth
+        • 40% Income → Meezan Islamic Income Fund (MIIF) — stable returns
+        • 20% Money Market → Meezan Cash Fund (MCF) — liquidity buffer
+        ⚠️ This is for informational purposes only and not financial advice."
 ```
 
 ---
 
-## 4. Branch & Environment Strategy
+#### Tool 6: `escalate_to_human`
+```python
+def escalate_to_human(
+    category: str,
+    summary: str,
+    priority: str = "normal",
+    customer_contact: str | None = None
+) -> dict:
+    """
+    Escalate the conversation to a human agent. Creates a support ticket.
+    Use when: complaint, account-specific query needing auth, transaction request,
+    or customer explicitly asks for a human.
 
-### Branch Rules
+    Args:
+        category: "complaint", "account_query", "transaction_request", "other"
+        summary: Brief summary of the issue for the human agent
+        priority: "low", "normal", "high", "urgent"
+        customer_contact: Email or phone if provided
 
-| Branch | Purpose | Protection Rules | Auto Deploy |
-|--------|---------|-----------------|-------------|
-| `feature/KMS-{ticket}` | Active development | None | Local only |
-| `staging` | Integration / QA | 1 approval required | ✅ ECS staging on merge |
-| `main` | Production | 2 approvals + passing CI | ✅ ECS prod (approval gate) |
-| `infrastructure` | Terraform changes only | 1 approval required | Plan auto, Apply manual |
+    Returns:
+        { ticket_id, estimated_response_time, message_to_customer }
+    """
+```
 
-### Git Flow
+**When LLM should use this:** Customer says "I want to speak to a person", complaints, transaction requests (buy/sell), account-specific queries requiring authentication.
+
+**Escalation notification:** Creates a DynamoDB ticket, sends confirmation email to customer (via SES), and sends notification email to the support team.
+
+---
+
+### System Prompt
 
 ```
-feature/KMS-42-chat-streaming
-         │
-         ▼ Pull Request → 1 review → merge
-       staging  ──── auto deploy ──→  AWS Staging
-         │
-         ▼ Pull Request → 2 reviews → merge
-        main  ──── manual approval ──→  AWS Production
-```
+You are an AI customer support agent for Al Meezan Investments, Pakistan's largest
+Shariah-compliant asset management company.
 
-### Commit Message Convention (enforced by commitizen)
-```
-feat(chat): add SSE streaming for LLM responses
-fix(auth): handle expired refresh token edge case
-docs(plan): update API contract for /documents endpoint
-chore(deps): update sentence-transformers to 2.7.0
-test(integration): add chat session CRUD tests
-infra(ecs): increase fargate task memory to 1GB
+ROLE:
+- Answer questions about Al Meezan mutual funds, Islamic finance, account services
+- Use your tools to look up accurate fund data (NAV, performance, comparisons)
+- Help customers understand their risk profile and suitable fund allocation
+- Escalate to human agents when appropriate
+
+RULES:
+1. Always use tools for factual data (NAV, returns, fees) — never make up numbers
+2. For risk profiling, gather all required info through conversation before calling the tool
+3. Always include the disclaimer for investment suggestions
+4. If the customer asks about account-specific info (balance, transactions), escalate
+5. Be professional, warm, and concise. Use Pakistani financial context.
+6. If unsure, say so honestly and offer to escalate
+
+TOOLS AVAILABLE:
+- search_knowledge_base: For FAQs, processes, regulations
+- get_fund_nav: Current NAV lookup
+- get_fund_performance: Fund return metrics
+- compare_funds: Side-by-side fund comparison
+- assess_risk_profile: Investment risk assessment (gather all inputs first)
+- escalate_to_human: Create support ticket for human agent
 ```
 
 ---
 
-## 5. Knowledge Base Design (Two-Layer)
+## 4. Knowledge Base
 
-### Layer 1: SBP Regulatory Documents (Domain Knowledge)
-- **Source:** `sbp.org.pk` — public domain, no auth
-- **Content:** Prudential Regulations, AML/CFT, core banking laws
-- **Format:** PDF
-- **Purpose:** Answers "What does the regulation say?" questions
-- **12 documents** — see `knowledge_base/scripts/seed_knowledge_base.py`
+### Layer 1: Al Meezan Fund Data (structured, refreshed daily)
 
-### Layer 2: HBL Public Disclosures (Real Bank Reference)
-- **Source:** `hbl.com/assets/documents/` — verified direct links
-- **Content:** Annual reports 2021–2024, quarterly reports
-- **Format:** PDF
-- **Purpose:** Real-world banking operations, financial ratios, product descriptions
-- **7 documents** — annual + quarterly reports
+Stored in DynamoDB `funds` table (not ChromaDB — this is structured data for tool lookups):
 
-### Layer 3: Internal App Documentation (Admin-Uploaded)
-- **Source:** Uploaded by admins through the KMS admin panel
-- **Content:** SOPs, architecture docs, API guides, runbooks, onboarding docs
-- **Format:** PDF, DOCX, MD, TXT
-- **Stored in:** S3 bucket → processed and indexed into ChromaDB
+| Data | Source | Refresh |
+|------|--------|---------|
+| Fund NAVs (all 15+ funds) | MUFAP daily NAV page | Daily (scheduled task) |
+| Fund performance (YTD, 1Y, 3Y, 5Y) | MUFAP performance table | Daily |
+| Fund metadata (category, fee, rating, benchmark) | Al Meezan website | Monthly |
 
-### ChromaDB Collection Design
+**Seed script** will download and parse from MUFAP.
 
-Single collection: `banking_knowledge`
+### Layer 2: Al Meezan Knowledge Documents (unstructured, for RAG)
 
-Each chunk document has this metadata:
+Stored in ChromaDB via embeddings:
+
+| Document | Source | Category |
+|----------|--------|----------|
+| Fund Manager Report (monthly PDF) | almeezangroup.com/assets/uploads/ | `fund_docs` |
+| Fund prospectuses / constitutive docs | almeezangroup.com downloads section | `fund_docs` |
+| FAQ content (account opening, digital account, Shariah) | almeezangroup.com/frequently-asked-questions | `faq` |
+| Investor guides (KYC, redemption, switching) | Al Meezan website | `process` |
+| SECP Mutual Fund Regulations 2025 | secp.gov.pk | `secp` |
+| SECP Investor suitability guidelines | secp.gov.pk | `secp` |
+| MUFAP investor education materials | mufap.com.pk | `education` |
+
+**Seed script** (`knowledge_base/scripts/seed.py`):
+- Downloads PDFs from verified URLs
+- Scrapes FAQ content from Al Meezan website
+- Generates metadata.json with checksums
+
+### Layer 3: Admin-Uploaded Documents
+
+- Admins upload additional docs via admin panel (internal SOPs, new product guides)
+- Processed through same pipeline: S3 → parse → chunk → embed → ChromaDB
+
+### ChromaDB Collection
+
+Single collection: `almeezan_knowledge`
+
+Chunk metadata:
 ```json
 {
   "doc_id": "uuid",
-  "doc_title": "SBP Prudential Regulations for SME",
-  "category": "sbp/prudential",
-  "layer": "1",
-  "source_url": "https://sbp.org.pk/...",
-  "page_number": 12,
-  "chunk_index": 3,
-  "uploaded_by": "system|admin@company.com"
+  "doc_title": "FMR February 2026",
+  "category": "fund_docs",
+  "source_url": "https://almeezangroup.com/assets/uploads/2026/02/FMR-February-2026.pdf",
+  "page_number": 5,
+  "chunk_index": 12,
+  "uploaded_by": "system"
 }
 ```
 
 ### Chunking Strategy
-- **Chunk size:** 512 tokens (≈ 380 words)
-- **Overlap:** 64 tokens (prevents context loss at boundaries)
+- **Chunk size:** 512 tokens (~380 words)
+- **Overlap:** 64 tokens
 - **Splitter:** Recursive character splitter (paragraph → sentence → word)
 - **Embedding model:** `sentence-transformers/all-MiniLM-L6-v2` → 384 dimensions
 
 ---
 
-## 6. Data Models (DynamoDB Schemas)
+## 5. Data Models (DynamoDB Schemas)
 
-> Table names follow pattern: `kms-{environment}-{table}`
-> Example: `kms-staging-users`, `kms-prod-chat-messages`
+> Table names follow pattern: `acc-{environment}-{table}`
+> Example: `acc-staging-conversations`, `acc-prod-tickets`
 
-### Table: `kms-{env}-users`
+### Table: `acc-{env}-funds`
+
+Structured fund data for tool calls (NOT for RAG — queried directly).
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `userId` | String (PK) | UUID v4 |
-| `email` | String | Unique email — also GSI hash key |
-| `hashedPassword` | String | bcrypt hash (cost 12) |
-| `role` | String | `admin` or `employee` |
-| `isActive` | Boolean | Soft-disable without delete |
-| `fullName` | String | Display name |
-| `createdAt` | String | ISO 8601 UTC |
-| `lastLoginAt` | String | ISO 8601 UTC |
-
-**GSI:** `EmailIndex` — HashKey: `email` — for login lookup
+| `fundId` | String (PK) | Ticker symbol, e.g. `MIF`, `MIIF`, `MCF` |
+| `fullName` | String | "Meezan Islamic Fund" |
+| `category` | String | `equity`, `income`, `money_market`, `balanced`, `commodity`, `etf` |
+| `nav` | Number | Current NAV (PKR) |
+| `navDate` | String | ISO 8601 date of NAV |
+| `returns` | Map | `{ "1d": 0.1, "1m": 1.2, "ytd": 18.5, "1y": 22.3, "3y": 45.7, "5y": 80.1 }` |
+| `managementFeePct` | Number | Annual management fee % |
+| `frontEndLoadPct` | Number | Front-end load % |
+| `benchmark` | String | Benchmark index name |
+| `riskLevel` | String | `low`, `medium`, `high` |
+| `fundRating` | String | e.g. `AA(f)` from PACRA |
+| `shariahCompliant` | Boolean | Always `true` for Al Meezan |
+| `minInvestmentPkr` | Number | Minimum initial investment |
+| `lastUpdated` | String | ISO 8601 UTC |
 
 ---
 
-### Table: `kms-{env}-documents`
+### Table: `acc-{env}-conversations`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `conversationId` | String (PK) | UUID v4 |
+| `sessionId` | String | WebSocket session ID |
+| `customerName` | String | Optional (if provided) |
+| `customerContact` | String | Optional email/phone |
+| `status` | String | `active`, `resolved`, `escalated` |
+| `toolsUsed` | List | `["get_fund_nav", "assess_risk_profile"]` |
+| `messageCount` | Number | Running count |
+| `createdAt` | String | ISO 8601 UTC |
+| `lastMessageAt` | String | ISO 8601 UTC |
+| `resolvedAt` | String | ISO 8601 UTC (if resolved) |
+
+---
+
+### Table: `acc-{env}-messages`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `conversationId` | String (PK) | Parent conversation |
+| `messageId` | String (SK) | `{timestamp_ms}#{uuid_short}` — chronological sort |
+| `role` | String | `customer`, `assistant`, `tool_call`, `tool_result` |
+| `content` | String | Message text or tool result JSON |
+| `toolName` | String | (if role=tool_call) which tool was invoked |
+| `toolArgs` | Map | (if role=tool_call) arguments passed |
+| `sources` | List | (if role=assistant) list of `{doc_title, score, chunk_text}` |
+| `latencyMs` | Number | Response generation time |
+| `tokenCount` | Number | Tokens used |
+| `createdAt` | String | ISO 8601 UTC |
+
+---
+
+### Table: `acc-{env}-tickets`
+
+Created when agent calls `escalate_to_human`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ticketId` | String (PK) | UUID v4 |
+| `conversationId` | String | Link to conversation |
+| `category` | String | `complaint`, `account_query`, `transaction_request`, `other` |
+| `summary` | String | AI-generated summary of the issue |
+| `priority` | String | `low`, `normal`, `high`, `urgent` |
+| `status` | String | `open` → `assigned` → `resolved` → `closed` |
+| `assignedTo` | String | Agent email (when assigned) |
+| `customerContact` | String | Email or phone |
+| `customerName` | String | If provided |
+| `resolution` | String | How it was resolved |
+| `createdAt` | String | ISO 8601 UTC |
+| `resolvedAt` | String | ISO 8601 UTC |
+
+**GSI:** `StatusIndex` — HashKey: `status` — for admin dashboard ticket queue
+
+---
+
+### Table: `acc-{env}-documents`
+
+Knowledge base document metadata.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -341,858 +525,693 @@ Each chunk document has this metadata:
 | `fileType` | String | `pdf`, `docx`, `md`, `txt` |
 | `fileSizeBytes` | Number | File size |
 | `status` | String | `pending` → `processing` → `ready` → `failed` |
-| `failureReason` | String | (optional) error message if `failed` |
-| `chunkCount` | Number | Number of chunks in ChromaDB |
+| `failureReason` | String | Error message if `failed` |
+| `chunkCount` | Number | Chunks in ChromaDB |
+| `category` | String | `faq`, `fund_docs`, `secp`, `process`, `internal` |
 | `uploadedBy` | String | userId of uploader |
-| `category` | String | `sbp/prudential`, `hbl/annual_reports`, `internal/sop`, etc. |
 | `createdAt` | String | ISO 8601 UTC |
 | `processedAt` | String | ISO 8601 UTC |
 
-**GSI:** `StatusIndex` — HashKey: `status`
-**GSI:** `UploadedByIndex` — HashKey: `uploadedBy`
-
 ---
 
-### Table: `kms-{env}-chat-sessions`
+### Table: `acc-{env}-users`
+
+Admin panel users (not customers — customers are anonymous chat users).
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `userId` | String (PK) | Owner user's ID |
-| `sessionId` | String (SK) | UUID v4 |
-| `title` | String | Auto-generated from first message (first 60 chars) |
+| `userId` | String (PK) | UUID v4 |
+| `email` | String | Unique, GSI hash key |
+| `hashedPassword` | String | bcrypt hash (cost 12) |
+| `role` | String | `admin`, `agent` |
+| `isActive` | Boolean | Soft-disable |
+| `fullName` | String | Display name |
 | `createdAt` | String | ISO 8601 UTC |
-| `lastMessageAt` | String | ISO 8601 UTC |
-| `messageCount` | Number | Running count |
+
+**GSI:** `EmailIndex` — for login lookup
 
 ---
 
-### Table: `kms-{env}-chat-messages`
+### Table: `acc-{env}-response-ratings`
+
+Admin/agent quality ratings on AI responses (feeds MLOps quality metrics).
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `sessionId` | String (PK) | Parent session |
-| `messageId` | String (SK) | `{timestamp_ms}#{uuid4_short}` — sorts chronologically |
-| `role` | String | `user` or `assistant` |
-| `content` | String | Message text |
-| `sources` | List | List of `{doc_title, chunk_text, score, category}` |
-| `tokensUsed` | Number | LLM tokens consumed (for monitoring) |
-| `llmProvider` | String | `groq` or `huggingface` |
-| `latencyMs` | Number | End-to-end response time |
+| `ratingId` | String (PK) | UUID v4 |
+| `messageId` | String | Which AI message was rated |
+| `conversationId` | String | Parent conversation |
+| `rating` | String | `good`, `bad`, `incorrect` |
+| `correctedAnswer` | String | What the correct answer should have been (optional) |
+| `ratedBy` | String | userId of admin/agent |
 | `createdAt` | String | ISO 8601 UTC |
 
 ---
 
-## 7. API Contract (All Endpoints)
+## 6. API Contract (All Endpoints)
 
-**Base URL:** `http://localhost:8000/api/v1` (local) | `https://{alb-dns}/api/v1` (deployed)
+**Base URL:** `http://localhost:8000/api/v1`
 
-All endpoints return JSON. Auth endpoints use `Authorization: Bearer {access_token}`.
+---
+
+### Chat (WebSocket)
+
+#### `WS /api/v1/chat/ws`
+```json
+// Client → Server (customer message)
+{ "type": "message", "content": "What is the NAV of MIF?" }
+
+// Server → Client (agent is thinking)
+{ "type": "status", "content": "thinking" }
+
+// Server → Client (tool call in progress — shown as "Looking up fund data...")
+{ "type": "tool_call", "tool": "get_fund_nav", "status": "calling" }
+
+// Server → Client (streamed response chunks)
+{ "type": "chunk", "content": "The current NAV of " }
+{ "type": "chunk", "content": "Meezan Islamic Fund is " }
+{ "type": "chunk", "content": "PKR 45.23 as of April 25, 2026." }
+
+// Server → Client (sources, sent after response completes)
+{ "type": "sources", "sources": [ { "title": "MUFAP NAV Data", "score": 0.95 } ] }
+
+// Server → Client (done)
+{ "type": "done", "latencyMs": 3200, "tokensUsed": 412 }
+```
+
+---
+
+### Conversations (REST — for admin panel)
+
+#### `GET /api/v1/conversations/` *(requires admin auth)*
+```json
+// Query: ?status=active&limit=20&cursor=xxx
+{
+  "items": [
+    {
+      "conversationId": "uuid",
+      "status": "active",
+      "messageCount": 8,
+      "toolsUsed": ["get_fund_nav", "assess_risk_profile"],
+      "createdAt": "2026-04-26T10:00:00Z",
+      "lastMessageAt": "2026-04-26T10:05:00Z"
+    }
+  ],
+  "nextCursor": "base64key"
+}
+```
+
+#### `GET /api/v1/conversations/{conversationId}/messages` *(requires admin auth)*
+
+---
+
+### Tickets (REST — for admin panel)
+
+#### `GET /api/v1/tickets/` *(requires admin auth)*
+```json
+// Query: ?status=open&priority=high&limit=20
+```
+
+#### `PATCH /api/v1/tickets/{ticketId}` *(requires admin auth)*
+```json
+// Request — assign or resolve
+{ "status": "assigned", "assignedTo": "agent@almeezan.com" }
+// or
+{ "status": "resolved", "resolution": "Customer was guided through KYC process" }
+```
+
+---
+
+### Documents (REST — for admin panel KB management)
+
+#### `POST /api/v1/documents/upload` *(requires admin auth, multipart)*
+#### `GET /api/v1/documents/` *(requires admin auth)*
+#### `GET /api/v1/documents/{documentId}/chunks` *(requires admin auth)*
+#### `DELETE /api/v1/documents/{documentId}` *(requires admin auth)*
+#### `POST /api/v1/documents/{documentId}/reindex` *(requires admin auth)*
+
+---
+
+### Funds (REST — internal, used by tools)
+
+#### `GET /api/v1/funds/` — List all funds with latest NAV
+#### `GET /api/v1/funds/{fundId}` — Single fund detail
+#### `GET /api/v1/funds/{fundId}/performance` — Performance metrics
+
+---
+
+### Quality Ratings (REST — admin rates AI responses)
+
+#### `POST /api/v1/ratings/` *(requires admin auth)*
+```json
+{ "messageId": "xxx", "conversationId": "yyy", "rating": "good" }
+```
+
+#### `GET /api/v1/ratings/stats` *(requires admin auth)*
+```json
+// Returns aggregated quality metrics
+{ "total": 500, "good": 420, "bad": 50, "incorrect": 30, "accuracy_pct": 84.0 }
+```
 
 ---
 
 ### Auth
 
 #### `POST /api/v1/auth/login`
-```json
-// Request
-{ "email": "user@company.com", "password": "secret" }
-
-// Response 200
-{
-  "accessToken": "eyJ...",
-  "refreshToken": "eyJ...",
-  "tokenType": "bearer",
-  "expiresIn": 3600,
-  "user": { "userId": "uuid", "email": "...", "role": "employee", "fullName": "Alice Khan" }
-}
-
-// Response 401
-{ "detail": "Invalid credentials" }
-```
-
-#### `POST /api/v1/auth/refresh`
-```json
-// Request
-{ "refreshToken": "eyJ..." }
-
-// Response 200
-{ "accessToken": "eyJ...", "expiresIn": 3600 }
-```
-
-#### `GET /api/v1/auth/me`  *(requires auth)*
-```json
-// Response 200
-{ "userId": "uuid", "email": "...", "role": "employee", "fullName": "Alice Khan", "lastLoginAt": "2026-04-18T10:00:00Z" }
-```
-
----
-
-### Documents
-
-#### `POST /api/v1/documents/upload`  *(requires auth, multipart/form-data)*
-```
-Fields:
-  file:     binary (PDF, DOCX, MD, TXT — max 50MB)
-  title:    string (optional, defaults to filename)
-  category: string (optional, e.g. "internal/sop")
-```
-```json
-// Response 202 (accepted, processing begins async)
-{
-  "documentId": "uuid",
-  "title": "SBP SME Regulations",
-  "status": "pending",
-  "message": "Document queued for processing"
-}
-```
-
-#### `GET /api/v1/documents/`  *(requires auth)*
-```json
-// Query params: ?status=ready&category=sbp&limit=20&cursor=xxx
-// Response 200
-{
-  "items": [
-    {
-      "documentId": "uuid",
-      "title": "SBP PR SME 2025",
-      "status": "ready",
-      "chunkCount": 84,
-      "fileType": "pdf",
-      "fileSizeBytes": 2048000,
-      "category": "sbp/prudential",
-      "uploadedBy": "system",
-      "createdAt": "2026-04-01T08:00:00Z"
-    }
-  ],
-  "nextCursor": "base64encodedkey"
-}
-```
-
-#### `GET /api/v1/documents/{documentId}`  *(requires auth)*
-```json
-// Response 200
-{
-  "documentId": "uuid",
-  "title": "SBP PR SME 2025",
-  "status": "ready",
-  "chunkCount": 84,
-  "fileType": "pdf",
-  "fileSizeBytes": 819200,
-  "category": "sbp/prudential",
-  "sourceUrl": "https://sbp.org.pk/...",
-  "uploadedBy": "system",
-  "createdAt": "2026-04-01T08:00:00Z",
-  "processedAt": "2026-04-01T08:02:15Z"
-}
-```
-
-#### `GET /api/v1/documents/{documentId}/chunks`  *(requires auth)*
-```json
-// Query: ?limit=20&offset=0
-// Returns paginated text chunks — used by KB Preview modal
-{
-  "documentId": "uuid",
-  "title": "SBP PR SME 2025",
-  "totalChunks": 84,
-  "chunks": [
-    {
-      "chunkIndex": 0,
-      "pageNumber": 1,
-      "text": "PRUDENTIAL REGULATIONS FOR SME FINANCING...\n\nPART A - DEFINITIONS..."
-    },
-    {
-      "chunkIndex": 1,
-      "pageNumber": 2,
-      "text": "1. SME means an entity with annual sales turnover not exceeding PKR 800 million..."
-    }
-  ],
-  "nextOffset": 20
-}
-```
-
-#### `DELETE /api/v1/documents/{documentId}`  *(requires admin)*
-```json
-// Response 200
-{ "message": "Document deleted", "chunksRemoved": 84 }
-```
-
-#### `POST /api/v1/documents/{documentId}/reindex`  *(requires admin)*
-```json
-// Re-runs ingestion pipeline for a single document
-// Useful if re-processing failed or chunking config changed
-// Response 202
-{ "message": "Reindex queued", "documentId": "uuid" }
-```
-
----
-
-### Chat
-
-#### `POST /api/v1/chat/sessions`  *(requires auth)*
-```json
-// Request (empty body or optional metadata)
-{}
-
-// Response 201
-{ "sessionId": "uuid", "userId": "uuid", "createdAt": "..." }
-```
-
-#### `POST /api/v1/chat/sessions/{sessionId}/message`  *(requires auth, returns SSE)*
-```json
-// Request
-{
-  "question": "What is the SBP provisioning requirement for a Substandard loan?",
-  "topK": 5
-}
-```
-```
-// Response: text/event-stream (SSE)
-event: chunk
-data: {"text": "According to SBP Prudential Regulations, "}
-
-event: chunk
-data: {"text": "a Substandard loan (180–269 days overdue) requires "}
-
-event: chunk
-data: {"text": "25% provisioning of the outstanding balance."}
-
-event: sources
-data: {
-  "sources": [
-    {
-      "docTitle": "SBP PR SME 2025",
-      "category": "sbp/prudential",
-      "chunkText": "Substandard: Where the principal or markup...",
-      "score": 0.91,
-      "pageNumber": 14
-    }
-  ]
-}
-
-event: done
-data: { "latencyMs": 3200, "tokensUsed": 412, "provider": "groq" }
-```
-
-#### `GET /api/v1/chat/sessions/`  *(requires auth)*
-```json
-// Returns current user's sessions, sorted by lastMessageAt desc
-// Query: ?limit=20&cursor=xxx
-{
-  "sessions": [
-    { "sessionId": "uuid", "title": "SBP provisioning requirement for...", "messageCount": 4, "lastMessageAt": "..." }
-  ]
-}
-```
-
-#### `GET /api/v1/chat/sessions/{sessionId}/messages`  *(requires auth)*
-```json
-// Returns all messages in a session
-{
-  "messages": [
-    { "messageId": "...", "role": "user", "content": "...", "createdAt": "..." },
-    { "messageId": "...", "role": "assistant", "content": "...", "sources": [...], "createdAt": "..." }
-  ]
-}
-```
-
----
-
-### Admin
-
-#### `GET /api/v1/admin/users`  *(requires admin)*
-#### `POST /api/v1/admin/users`  *(requires admin — create user)*
-#### `PATCH /api/v1/admin/users/{userId}`  *(requires admin — update role/isActive)*
-#### `POST /api/v1/admin/reindex`  *(requires admin — re-process all documents)*
+#### `GET /api/v1/auth/me` *(requires auth)*
 
 ---
 
 ### Health
 
-#### `GET /health`  *(no auth — used by ALB health checks)*
+#### `GET /health`
 ```json
 { "status": "ok", "version": "1.0.0", "environment": "staging" }
 ```
 
 ---
 
-## 8. Core Service Interfaces
+## 7. Chat Widget (Embeddable JS)
 
-> All services are Python classes. These interfaces define the contract.
-> Each developer building a service must implement these exact method signatures.
+A lightweight JavaScript widget that any website embeds via a single `<script>` tag.
 
-### EmbeddingService
-```python
-class EmbeddingService:
-    def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        """
-        Embed a batch of texts. Returns list of 384-dim vectors.
-        Uses sentence-transformers/all-MiniLM-L6-v2 (local, free).
-        """
-
-    def embed_query(self, query: str) -> list[float]:
-        """Embed a single query string. Returns 384-dim vector."""
+### Integration Code (for client website)
+```html
+<!-- Al Meezan AI Support Widget -->
+<script src="https://your-cdn-or-alb/static/widget.js"></script>
+<script>
+  AlMeezanChat.init({
+    apiUrl: "wss://your-alb-dns/api/v1/chat/ws",
+    theme: "dark",       // "light" or "dark"
+    position: "bottom-right",
+    greeting: "Assalam o Alaikum! How can I help you with your investment queries today?"
+  });
+</script>
 ```
 
-### VectorService
-```python
-class VectorService:
-    def upsert_chunks(
-        self, doc_id: str, chunks: list[str], embeddings: list[list[float]], metadata: list[dict]
-    ) -> int:
-        """Store chunks in ChromaDB. Returns number of chunks stored."""
+### Widget Behaviour
+- **Collapsed state:** Floating button (bottom-right) with Al Meezan brand color (#006B3F)
+- **Expanded state:** Chat window (400×550px) with:
+  - Header: "Al Meezan Support" + minimize button
+  - Message area: scrollable, auto-scroll to bottom
+  - Customer messages: right-aligned, green bubble
+  - Agent messages: left-aligned, white bubble, with markdown rendering
+  - Tool call indicators: "🔍 Looking up fund data..." shown while tools execute
+  - Source citations: collapsible section after agent response
+  - Input area: text input + send button
+- **Connection:** WebSocket (reconnects automatically on disconnect)
+- **Session persistence:** `conversationId` stored in `sessionStorage` (cleared on tab close)
+- **No login required:** Customers are anonymous
 
-    def search_similar(
-        self, query_embedding: list[float], top_k: int = 5, where: dict | None = None
-    ) -> list[SearchResult]:
-        """Return top_k most similar chunks with metadata and score."""
-
-    def delete_document(self, doc_id: str) -> int:
-        """Delete all chunks for a document. Returns count deleted."""
+### Files
 ```
-
-### BaseLLMProvider (abstract)
-```python
-class BaseLLMProvider(ABC):
-    @abstractmethod
-    async def chat_stream(
-        self, question: str, context_chunks: list[str], chat_history: list[dict]
-    ) -> AsyncGenerator[str, None]:
-        """Stream answer tokens given question + retrieved context chunks."""
-
-    @abstractmethod
-    def get_provider_name(self) -> str:
-        """Return 'groq' or 'huggingface'."""
-```
-
-### DocumentProcessor
-```python
-class DocumentProcessor:
-    def process(self, file_path: Path, file_type: str) -> list[Chunk]:
-        """
-        Parse file and split into chunks.
-        Supports: pdf (pypdf), docx (python-docx), md/txt (plain text).
-        Returns list of Chunk(content: str, metadata: dict).
-        Chunk size: 512 tokens, overlap: 64 tokens.
-        """
-```
-
-### IngestionPipeline
-```python
-class IngestionPipeline:
-    async def run(self, document_id: str) -> IngestionResult:
-        """
-        Full pipeline:
-        1. Fetch raw file from S3
-        2. Parse with DocumentProcessor
-        3. Generate embeddings with EmbeddingService
-        4. Store in ChromaDB via VectorService
-        5. Update DynamoDB document status
-        Returns: IngestionResult(chunk_count, status, error_message)
-        """
-```
-
-### RAGPipeline
-```python
-class RAGPipeline:
-    async def query_stream(
-        self, question: str, session_id: str, top_k: int = 5
-    ) -> AsyncGenerator[RAGEvent, None]:
-        """
-        Full RAG:
-        1. Embed question with EmbeddingService
-        2. Search ChromaDB via VectorService → top_k chunks
-        3. Build prompt: system_prompt + context + chat_history
-        4. Stream answer through LLMProvider
-        5. Yield RAGEvent (chunk text | sources | done)
-        """
+widget/
+├── widget.js           ← Self-contained IIFE (no dependencies)
+├── widget.css          ← Inline styles (injected by JS, no external CSS)
+└── widget.html         ← Local dev test page
 ```
 
 ---
 
-## 9. Key System Flows (Sequence Diagrams)
+## 8. Admin Panel (Web UI)
 
-### Flow 1: Employee Asks a Question
+Server-rendered HTML pages served by FastAPI + Jinja2 templates. Simple, no React/Next.js.
+
+### Pages
+
+| Route | Description |
+|-------|------------|
+| `/admin/login` | Email + password login |
+| `/admin/dashboard` | Overview: active conversations, open tickets, quality metrics |
+| `/admin/conversations` | List all conversations, click to view full transcript |
+| `/admin/conversations/{id}` | Full conversation transcript with tool calls visible |
+| `/admin/tickets` | Ticket queue: filter by status/priority, assign, resolve |
+| `/admin/knowledge-base` | List documents, upload new, delete, reindex |
+| `/admin/knowledge-base/{id}/chunks` | Preview indexed chunks for a document |
+| `/admin/quality` | Response quality dashboard: rating stats, trends |
+| `/admin/funds` | View fund data, trigger NAV refresh |
+
+### Admin Access Model
+
+| Action | Admin | Agent |
+|--------|-------|-------|
+| View dashboard | ✅ | ✅ |
+| View conversations | ✅ | ✅ |
+| Rate AI responses (👍/👎) | ✅ | ✅ |
+| Manage tickets (assign/resolve) | ✅ | ✅ |
+| Upload/delete KB documents | ✅ | ❌ |
+| Manage users | ✅ | ❌ |
+| Trigger NAV refresh | ✅ | ❌ |
+
+
+### Design
+- Simple, clean HTML/CSS — no heavy framework
+- Responsive (works on desktop and tablet)
+- DataTables or plain HTML tables with server-side pagination
+- Charts: lightweight (Chart.js) for quality dashboard
+
+---
+
+## 9. Quality & Data Pipeline
+
+### Quality Feedback Loop
 
 ```
-Employee (Slack)      Slack Bot (Bolt)    API           VectorService   LLMProvider
-     │                     │               │                 │               │
-     │─/kms <question>───→ │               │                 │               │
-     │←── ack (thinking)── │               │                 │               │
-     │                     │──POST /chat/sessions/{id}/message──────────────→ │
-     │                     │               │──embed(question)────────────────→
-     │                     │               │←───────────────vector(384d)─────
-     │                     │               │──search(vector, top_k=5)────────→
-     │                     │               │←───────────────[chunks+meta]────
-     │                     │               │──stream(question+context)──────────────────→
-     │                     │←─────────SSE chunks──────────────────────────────────────│
-     │                     │─── accumulate full answer ────────────────────────────── │
-     │                     │               │                 │               │
-     │←─Block Kit reply────│               │──save Q+A to DynamoDB          │
-     │  (answer + sources) │               │                 │               │
+Customer asks question
+        ↓
+AI responds (logged in DynamoDB)
+        ↓
+Admin reviews conversation in admin panel
+        ↓
+Admin rates response: 👍 good / 👎 bad / ❌ incorrect
+        ↓
+Rating stored in `response-ratings` table
+        ↓
+Admin dashboard shows quality trends:
+  - accuracy_rate = good / (good + bad + incorrect)
+  - avg_response_time_ms
+  - tool_usage_distribution
+  - escalation_rate
+        ↓
+Team adjusts prompts/config in git → CI/CD deploys
 ```
 
-### Flow 2: Admin Uploads a Document
+### KB Data Pipeline
 
 ```
-Admin (Slack DM)     Slack Bot (Bolt)    API           S3          DynamoDB      ChromaDB
-     │                    │               │             │              │              │
-     │──DM: [PDF file]──→ │               │             │              │              │
-     │←─  "Processing.."─ │               │             │              │              │
-     │                    │──download file from Slack CDN────────────────────────────│
-     │                    │──POST /documents/upload───────────────────→ │              │
-     │                    │               │────────upload file────────→ │              │
-     │                    │               │──put_item(status=pending)──────────────→  │
-     │                    │←──202 Accepted───────────── │              │              │
-     │                    │   [BackgroundTask starts]   │              │              │
-     │                    │               │──parse PDF → chunk → embed │              │
-     │                    │               │──────────────────────────────────upsert──→
-     │                    │               │──update(status=ready)──────────────────→  │
-     │←─ "✅ Indexed (84 chunks)"─────────│              │              │              │
+Admin uploads new document (via admin panel)
+        ↓
+S3 upload → DynamoDB status=pending
+        ↓
+Background task:
+  1. Download from S3
+  2. Parse (PDF/DOCX/MD/TXT)
+  3. Chunk (512 tokens, 64 overlap)
+  4. Embed (sentence-transformers)
+  5. Upsert to ChromaDB
+  6. Update DynamoDB status=ready
+        ↓
+Validation: run 5 test queries against new collection, compare scores
+        ↓
+If quality drops > 10%: alert admin, rollback to previous collection snapshot
 ```
 
 ---
 
-## 10. Infrastructure (Terraform)
+## 10. Repository Structure
 
-### AWS Resources Per Environment
+```
+Project/                              ← monorepo root
+│
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                    ← lint + unit tests on all pushes
+│       ├── staging.yml               ← deploy to ECS staging
+│       ├── prod.yml                  ← deploy to ECS prod (approval gate)
+│       └── terraform.yml             ← tf plan/apply
+│
+├── infrastructure/
+│   ├── docker/
+│   │   ├── Dockerfile.api            ← multi-stage, Python 3.11-slim
+│   │   └── Dockerfile.widget         ← nginx alpine, serves static widget files
+│   └── terraform/
+│       ├── modules/
+│       │   ├── vpc/                  ← VPC, subnets, NAT, security groups
+│       │   ├── ecs/                  ← Fargate cluster, task defs, ALB
+│       │   ├── dynamodb/             ← All tables with GSIs
+│       │   ├── s3/                   ← Document bucket
+│       │   └── iam/                  ← Task roles, OIDC deploy role
+│       └── environments/
+│           ├── staging/
+│           │   ├── main.tf           ← Module calls with staging vars
+│           │   ├── terraform.tfvars  ← Staging-specific values
+│           │   └── backend.tf        ← S3 state: key = staging/terraform.tfstate
+│           └── prod/
+│               ├── main.tf
+│               ├── terraform.tfvars
+│               └── backend.tf        ← S3 state: key = prod/terraform.tfstate
+│
+├── backend/
+│   ├── app/
+│   │   ├── main.py                   ← FastAPI app factory, routers, lifespan
+│   │   ├── core/
+│   │   │   ├── config.py             ← pydantic-settings (all env vars)
+│   │   │   ├── dynamo.py             ← DynamoDB client + helpers
+│   │   │   ├── security.py           ← JWT + bcrypt
+│   │   │   └── dependencies.py       ← get_current_user, require_admin
+│   │   │
+│   │   ├── agent/                    ← AI Agent (core differentiator)
+│   │   │   ├── orchestrator.py       ← Agent loop: receive → LLM → tool call → respond
+│   │   │   ├── system_prompt.py      ← System prompt template (versioned)
+│   │   │   ├── tools/
+│   │   │   │   ├── search_kb.py      ← search_knowledge_base tool
+│   │   │   │   ├── fund_nav.py       ← get_fund_nav tool
+│   │   │   │   ├── fund_perf.py      ← get_fund_performance tool
+│   │   │   │   ├── compare.py        ← compare_funds tool
+│   │   │   │   ├── risk_profile.py   ← assess_risk_profile tool
+│   │   │   │   └── escalate.py       ← escalate_to_human tool
+│   │   │   └── tool_registry.py      ← Maps tool names → functions + schemas
+│   │   │
+│   │   ├── routers/
+│   │   │   ├── chat_ws.py            ← WebSocket endpoint for chat widget
+│   │   │   ├── conversations.py      ← Admin: list/view conversations
+│   │   │   ├── tickets.py            ← Admin: ticket CRUD
+│   │   │   ├── documents.py          ← Admin: KB document management
+│   │   │   ├── funds.py              ← Fund data endpoints (internal)
+│   │   │   ├── ratings.py            ← Response quality ratings
+│   │   │   └── auth.py               ← Login, me
+│   │   │
+│   │   ├── services/
+│   │   │   ├── embedding_service.py  ← sentence-transformers (local, 384d)
+│   │   │   ├── vector_service.py     ← ChromaDB CRUD + search
+│   │   │   ├── llm_service.py        ← Groq client with tool calling support
+│   │   │   ├── document_processor.py ← PDF/DOCX/MD → chunks
+│   │   │   ├── storage_service.py    ← S3 upload/download
+│   │   │   └── fund_data_service.py  ← DynamoDB fund queries for tools
+│   │   │
+│   │   ├── pipeline/
+│   │   │   └── ingestion.py          ← S3 → parse → chunk → embed → ChromaDB
+│   │   │
+│   │   └── admin/                    ← Admin panel (Jinja2 templates)
+│   │       ├── templates/
+│   │       │   ├── base.html         ← Layout with nav
+│   │       │   ├── login.html
+│   │       │   ├── dashboard.html
+│   │       │   ├── conversations.html
+│   │       │   ├── conversation_detail.html
+│   │       │   ├── tickets.html
+│   │       │   ├── knowledge_base.html
+│   │       │   └── quality.html
+│   │       ├── static/               ← Admin CSS + JS
+│   │       └── views.py              ← Admin page routes (renders templates)
+│   │
+│   ├── tests/
+│   │   ├── conftest.py
+│   │   ├── unit/
+│   │   │   ├── test_tools.py         ← Each tool function independently
+│   │   │   ├── test_orchestrator.py   ← Agent loop with mocked LLM
+│   │   │   ├── test_risk_profile.py   ← Risk scoring logic
+│   │   │   └── test_document_processor.py
+│   │   └── integration/
+│   │       ├── test_chat_ws.py        ← WebSocket chat flow
+│   │       ├── test_tickets.py
+│   │       └── test_documents.py
+│   │
+│   ├── pyproject.toml
+│   └── requirements.txt
+│
+├── widget/                           ← Embeddable chat widget (static JS/CSS)
+│   ├── widget.js
+│   ├── widget.css
+│   └── widget.html                   ← Local dev test page
+│
+├── knowledge_base/
+│   ├── scripts/
+│   │   └── seed.py                   ← Download Al Meezan + MUFAP + SECP docs
+│   └── raw_docs/                     ← Downloaded PDFs (gitignored)
+│
+├── .pre-commit-config.yaml
+├── docker-compose.yml                ← Local: api + chromadb + dynamodb-local
+├── Makefile
+├── .env.example
+├── .gitignore
+├── PROJECT_PLAN.md                   ← THIS FILE
+└── README.md
+```
+
+---
+
+## 11. Infrastructure (Terraform Guide)
+
+> No .tf files are committed — team builds Terraform following this guide.
+> Key design: **shared modules**, **separate tfvars per environment**, **S3 state with DynamoDB lock**.
+
+### Terraform Directory Layout
+
+```
+infrastructure/terraform/
+├── modules/                          ← Shared, reusable modules
+│   ├── vpc/
+│   │   ├── main.tf                   ← VPC, 2 public + 2 private subnets, 1 NAT GW, SGs
+│   │   ├── variables.tf              ← project_name, environment, vpc_cidr, az_count
+│   │   └── outputs.tf                ← vpc_id, subnet_ids, sg_ids
+│   ├── ecs/
+│   │   ├── main.tf                   ← Cluster, task def, service, ALB, target groups
+│   │   ├── variables.tf              ← cpu, mem, desired_count, image, env_vars, subnets, sgs
+│   │   └── outputs.tf                ← cluster_name, alb_dns, service_name
+│   ├── dynamodb/
+│   │   ├── main.tf                   ← All 7 tables with GSIs, PITR config
+│   │   ├── variables.tf              ← project_name, environment, enable_pitr
+│   │   └── outputs.tf                ← table_names, table_arns
+│   ├── s3/
+│   │   ├── main.tf                   ← Bucket, encryption, lifecycle, versioning
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   └── iam/
+│       ├── main.tf                   ← Task exec role, task role, OIDC deploy role
+│       ├── variables.tf
+│       └── outputs.tf
+│
+└── environments/
+    ├── staging/
+    │   ├── backend.tf                ← S3 backend { key = "staging/terraform.tfstate" }
+    │   ├── main.tf                   ← module "vpc" { source = "../../modules/vpc" ... }
+    │   ├── terraform.tfvars          ← environment="staging", api_cpu=256, api_mem=512, desired_count=1
+    │   └── outputs.tf
+    └── prod/
+        ├── backend.tf                ← S3 backend { key = "prod/terraform.tfstate" }
+        ├── main.tf                   ← Same modules, different vars
+        ├── terraform.tfvars          ← environment="prod", api_cpu=512, api_mem=1024, desired_count=2, enable_pitr=true
+        └── outputs.tf
+```
+
+### Remote State Setup (one-off bootstrap)
+
+```bash
+# Create S3 bucket for state (run once in AWS console or CLI)
+aws s3api create-bucket --bucket acc-terraform-state --region us-east-1
+aws s3api put-bucket-versioning --bucket acc-terraform-state --versioning-configuration Status=Enabled
+
+# Create DynamoDB lock table (run once)
+aws dynamodb create-table \
+  --table-name acc-terraform-locks \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST
+```
+
+### backend.tf (each environment)
+```hcl
+terraform {
+  backend "s3" {
+    bucket         = "acc-terraform-state"
+    key            = "staging/terraform.tfstate"   # or "prod/terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+    dynamodb_table = "acc-terraform-locks"
+  }
+}
+```
+
+### Environment Sizing
 
 | Resource | Staging | Prod |
 |----------|---------|------|
-| VPC | 1 (2 public + 2 private subnets, 1 NAT GW) | Same |
-| ECS Cluster | 1 Fargate (standard) | 1 Fargate (standard) |
-| ECS Tasks | 1× API (0.25vCPU, 0.5GB) | 2× API (0.5vCPU, 1GB) |
-| ALB | 1 | 1 |
-| DynamoDB | 4 tables (PAY_PER_REQUEST, no PITR) | 4 tables (PAY_PER_REQUEST, PITR on) |
-| S3 | 1 bucket (30-day lifecycle to IA) | 1 bucket (90-day lifecycle to Glacier) |
-| ECR | 2 repos (api, frontend) — shared | Same repos, tagged differently |
-| IAM | Task exec role, task role, OIDC role | Same |
-| EFS | 1 mount (ChromaDB volume) | 1 mount |
-
-### Terraform Module Inputs/Outputs Summary
-
-```
-module "vpc"
-  inputs:  project_name, environment, vpc_cidr, az_count
-  outputs: vpc_id, public_subnet_ids, private_subnet_ids, alb_sg_id, ecs_sg_id
-
-module "ecs"
-  inputs:  project_name, environment, vpc_id, subnets, sg_ids, api_image, api_cpu/mem, desired_count, env_vars
-  outputs: cluster_name, alb_dns_name, api_service_name
-
-module "dynamodb"
-  inputs:  project_name, environment, enable_pitr
-  outputs: *_table_name, *_table_arn (for all 4 tables)
-
-module "s3"
-  inputs:  project_name, environment, lifecycle_glacier_days
-  outputs: bucket_name, bucket_arn
-
-module "iam"
-  inputs:  project_name, environment, s3_bucket_arn, dynamodb_table_arns, github_org, github_repo
-  outputs: task_execution_role_arn, task_role_arn, deploy_role_arn
-```
-
-### Remote State
-- **Backend:** S3 bucket `kms-terraform-state` + DynamoDB lock table `kms-terraform-locks`
-- **State paths:**
-  - `staging/terraform.tfstate`
-  - `prod/terraform.tfstate`
+| ECS Fargate API | 0.25 vCPU, 0.5 GB, 1 task | 0.5 vCPU, 1 GB, 2 tasks |
+| DynamoDB | PAY_PER_REQUEST, no PITR | PAY_PER_REQUEST, PITR on |
+| S3 lifecycle | 30 days → IA | 90 days → Glacier |
+| ALB | 1 (public) | 1 (public) |
+| NAT Gateway | 1 AZ | 1 AZ |
 
 ---
 
-## 11. CI/CD Pipelines (GitHub Actions)
+## 12. CI/CD Pipelines (GitHub Actions)
 
-### `ci.yml` — Runs on every push and PR
-
+### `ci.yml` — Every push
 ```yaml
 Trigger: push to any branch, pull_request to staging or main
-
 Steps:
-  1. Checkout code
+  1. Checkout
   2. Setup Python 3.11 (cached pip)
-  3. pip install -r backend/requirements.txt
-  4. pre-commit run --all-files
-     ├── ruff check + format
-     ├── mypy (type checking)
-     ├── bandit (security scan)
-     ├── detect-secrets (no leaked keys)
-     └── terraform fmt check
+  3. Install requirements
+  4. pre-commit run --all-files (ruff, mypy, bandit, detect-secrets)
   5. pytest tests/unit/ -v --cov=app --cov-report=xml
   6. Upload coverage to Codecov
-  7. Report status check (required for PR merge)
 ```
 
-### `staging.yml` — Deploy to staging
-
+### `staging.yml` — Push to staging
 ```yaml
-Trigger: push to staging branch (after PR merge)
-
+Trigger: push to staging branch
 Steps:
-  1. Run ci.yml jobs (reused)
-  2. Configure AWS credentials via OIDC (no long-lived keys)
-     Role: arn:aws:iam::{account}:role/kms-staging-github-deploy
-  3. docker build --target production -f infrastructure/docker/Dockerfile.api
-  4. docker tag kms-api:staging-{sha}
-  5. docker push to ECR
-  6. aws ecs update-service --cluster kms-staging-cluster --force-new-deployment
-  7. Wait for service stability (60s timeout)
-  8. Run integration smoke tests: pytest tests/integration/ -m smoke
+  1. Reuse ci.yml
+  2. Configure AWS OIDC credentials
+  3. docker build + push to ECR (tag: staging-{sha})
+  4. aws ecs update-service --force-new-deployment
+  5. Wait for stability
+  6. Run smoke tests
+  7. Email notification via SES to team
 ```
 
-### `prod.yml` — Deploy to production
-
+### `prod.yml` — Push to main
 ```yaml
-Trigger: push to main branch
-
+Trigger: push to main
 Steps:
-  1. Run ci.yml jobs (reused)
-  2. [MANUAL APPROVAL GATE] — GitHub Environment "production"
-     Required reviewers: 1 senior engineer + 1 team lead
-  3. Configure AWS credentials via OIDC
-     Role: arn:aws:iam::{account}:role/kms-prod-github-deploy
-  4. docker build --target production
-  5. docker tag kms-api:prod-{sha} AND kms-api:prod-latest
-  6. docker push to ECR
-  7. aws ecs update-service --cluster kms-prod-cluster --force-new-deployment
-  8. Wait 90s for stability
-  9. Run health check: curl https://{prod-alb}/health
- 10. Notify Slack on success or failure
+  1. Reuse ci.yml
+  2. MANUAL APPROVAL GATE (GitHub environment: production)
+  3. Configure AWS OIDC credentials
+  4. docker build + push to ECR (tag: prod-{sha} + prod-latest)
+  5. aws ecs update-service
+  6. Health check: curl /health
+  7. Email notification via SES (success/failure)
 ```
 
 ### `terraform.yml` — Infrastructure changes
-
 ```yaml
-Trigger: push to infrastructure branch
-
+Trigger: push to infrastructure branch, workflow_dispatch for apply
 Steps:
-  1. terraform fmt --check (all modules)
-  2. terraform init + terraform validate (staging env)
-  3. terraform init + terraform validate (prod env)
-  4. terraform plan -out=staging.tfplan (staging)
-  5. Upload plan as PR artifact + comment plan diff on PR
-  6. [MANUAL] terraform apply — triggered via workflow_dispatch after PR review
+  1. terraform fmt --check
+  2. terraform validate (staging + prod)
+  3. terraform plan → comment on PR
+  4. Manual apply via workflow_dispatch
 ```
+
+### Branch Strategy
+
+| Branch | Purpose | Deploy |
+|--------|---------|--------|
+| `feature/ACC-{ticket}` | Development | Local |
+| `staging` | Integration/QA | → ECS staging |
+| `main` | Production | → ECS prod (approval gate) |
+| `infrastructure` | Terraform only | Plan auto, Apply manual |
 
 ---
 
-## 12. Code Quality & Pre-commit Hooks
-
-All hooks run automatically on `git commit`. CI also runs them.
+## 13. Code Quality & Pre-commit Hooks
 
 | Hook | Tool | What It Catches |
 |------|------|----------------|
+| Ruff lint | ruff | PEP8, unused imports, bad patterns |
+| Ruff format | ruff | Consistent code formatting |
+| Mypy | mypy | Type errors |
+| Bandit | bandit | Security vulnerabilities |
+| detect-secrets | Yelp detect-secrets | Leaked API keys/tokens |
+| Hadolint | hadolint | Dockerfile best practices |
+| Terraform fmt | terraform | HCL formatting |
 | Trailing whitespace | pre-commit-hooks | Formatting noise |
-| End of file fixer | pre-commit-hooks | Missing newline |
-| YAML/JSON/TOML check | pre-commit-hooks | Syntax errors |
-| Large file check | pre-commit-hooks | Blocks files >500KB |
-| **Detect private key** | pre-commit-hooks | AWS keys, SSH keys in code |
-| **Ruff lint** | ruff | PEP8, unused imports, bad patterns |
-| **Ruff format** | ruff | Consistent code formatting |
-| **Mypy** | mypy | Type errors, missing annotations |
-| **Bandit** | bandit | SQL injection, hardcoded passwords, weak crypto |
-| **detect-secrets** | Yelp detect-secrets | API keys, tokens, passwords in any file |
-| **Safety** | safety | Known CVEs in requirements.txt |
-| **Hadolint** | hadolint | Dockerfile best practices + security |
-| **Terraform fmt** | terraform | HCL formatting |
-| **Commitizen** | commitizen | Conventional commit message format |
-
-### Setup for Developers
-```bash
-pip install pre-commit
-pre-commit install          # installs git hooks
-pre-commit install --hook-type commit-msg  # installs commit-msg hook
-pre-commit run --all-files  # run manually on all files
-```
+| YAML/JSON check | pre-commit-hooks | Syntax errors |
 
 ---
 
-## 13. Testing Strategy
+## 14. Testing Strategy
 
-### Unit Tests (`tests/unit/`) — No external dependencies
+### Unit Tests (no external deps)
 
 | File | What to Test |
 |------|-------------|
-| `test_document_processor.py` | PDF parsing, chunking size, overlap, special chars |
-| `test_embedding_service.py` | Output shape (384d), batch sizing, determinism |
-| `test_llm_service.py` | Provider switching via env var, prompt construction, mock stream |
-| `test_rag_pipeline.py` | Context assembly, source deduplication, empty results handling |
-| `test_security.py` | JWT sign/verify, expiry, bcrypt hash/verify, role validation |
+| `test_tools.py` | Each tool function: NAV lookup, fund comparison, risk scoring |
+| `test_orchestrator.py` | Agent loop with mocked LLM: tool selection, multi-tool calls |
+| `test_risk_profile.py` | Risk scoring algorithm: edge cases, boundary values |
+| `test_document_processor.py` | PDF/DOCX/MD parsing, chunk size validation |
 
-**Run:** `pytest tests/unit/ -v`
-**Coverage target:** ≥ 80%
+### Integration Tests (Docker Compose up)
 
-### Integration Tests (`tests/integration/`) — Real DynamoDB Local + ChromaDB in Docker
-
-| File | Endpoints Covered |
-|------|------------------|
-| `test_auth.py` | Login success/fail, token refresh, /me auth |
-| `test_documents.py` | Upload → status pending → ready, delete, list |
-| `test_chat.py` | Create session, send message (mocked LLM), get history |
-| `test_admin.py` | User CRUD, role update, reindex trigger |
-
-**Run:** `docker-compose up -d && pytest tests/integration/ -v`
+| File | What to Test |
+|------|-------------|
+| `test_chat_ws.py` | WebSocket chat flow: connect → send → receive chunks → done |
+| `test_tickets.py` | Escalation flow: create ticket, assign, resolve |
+| `test_documents.py` | Upload → process → search → delete |
 
 ### Test Fixtures (conftest.py)
 ```python
-# Key fixtures every developer must know:
-@pytest.fixture  client           # TestClient(app) with auth headers
-@pytest.fixture  dynamo_tables    # created DynamoDB Local tables (cleaned after each test)
-@pytest.fixture  chroma_client    # in-memory ChromaDB client
-@pytest.fixture  mock_llm         # returns predictable chunks, no real API call
-@pytest.fixture  admin_user       # pre-seeded admin user + JWT token
-@pytest.fixture  employee_user    # pre-seeded employee user + JWT token
+@pytest.fixture  client           # TestClient(app) with auth
+@pytest.fixture  ws_client        # WebSocket test client
+@pytest.fixture  dynamo_tables    # DynamoDB Local tables (cleaned per test)
+@pytest.fixture  chroma_client    # In-memory ChromaDB
+@pytest.fixture  mock_groq        # Mocked Groq API (returns predictable tool calls)
+@pytest.fixture  admin_user       # Pre-seeded admin + JWT
+@pytest.fixture  sample_funds     # Pre-seeded fund data in DynamoDB
 ```
 
 ---
 
-## 14. Environment Variables Reference
+## 15. Environment Variables Reference
 
 ```env
 # ── App ──────────────────────────────────────────────────────
 ENVIRONMENT=development          # development | staging | production
-SECRET_KEY=<32-byte hex>         # generate: openssl rand -hex 32
+SECRET_KEY=<32-byte hex>         # openssl rand -hex 32
 CORS_ORIGINS=http://localhost:3000
 
 # ── AWS ──────────────────────────────────────────────────────
 AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=<key>          # not needed in ECS (task role used)
-AWS_SECRET_ACCESS_KEY=<secret>   # not needed in ECS (task role used)
-S3_BUCKET_NAME=kms-documents-dev
+S3_BUCKET_NAME=acc-documents-dev
 
 # ── DynamoDB ─────────────────────────────────────────────────
-DYNAMODB_ENDPOINT_URL=http://localhost:8001   # LOCAL ONLY — remove in AWS
-TABLE_USERS=kms-development-users
-TABLE_DOCUMENTS=kms-development-documents
-TABLE_CHAT_SESSIONS=kms-development-chat-sessions
-TABLE_CHAT_MESSAGES=kms-development-chat-messages
+DYNAMODB_ENDPOINT_URL=http://localhost:8001   # LOCAL ONLY
+TABLE_PREFIX=acc-development                 # tables: {prefix}-funds, {prefix}-conversations, ...
 
 # ── ChromaDB ─────────────────────────────────────────────────
-CHROMA_HOST=chromadb             # service name in docker-compose
+CHROMA_HOST=chromadb
 CHROMA_PORT=8000
-CHROMA_COLLECTION=banking_knowledge
+CHROMA_COLLECTION=almeezan_knowledge
 
-# ── LLM Provider ─────────────────────────────────────────────
-LLM_PROVIDER=groq                # groq | huggingface
-LLM_MODEL_NAME=llama-3.1-70b-versatile
-GROQ_API_KEY=gsk_xxx             # free: console.groq.com
-HUGGINGFACE_API_KEY=hf_xxx       # free: huggingface.co/settings/tokens
+# ── LLM (Groq — free tier) ──────────────────────────────────
+GROQ_API_KEY=gsk_xxx             # Free: console.groq.com
+GROQ_MODEL=llama-3.1-70b-versatile
 
 # ── Embeddings ───────────────────────────────────────────────
-EMBEDDING_PROVIDER=local         # local (free) | openai
-# OPENAI_API_KEY=sk-...          # only if EMBEDDING_PROVIDER=openai
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 
-# ── Slack Bot ───────────────────────────────────────────────
-SLACK_BOT_TOKEN=xoxb-xxx               # OAuth Bot Token (Bot User OAuth Token)
-SLACK_APP_TOKEN=xapp-xxx               # App-Level Token (Socket Mode, scope: connections:write)
-SLACK_SIGNING_SECRET=xxx               # Found in Basic Information → App Credentials
-SLACK_WEBHOOK_URL=https://hooks.slack.com/...  # Incoming Webhook for deploy notifications
+# ── Email (SES — ticket + deploy notifications) ─────────────
+SES_SENDER_EMAIL=support@almeezan.com  # Verified SES sender
+SES_SUPPORT_TEAM_EMAIL=support-team@almeezan.com  # Internal team inbox
 
-# ── Seed Admin ───────────────────────────────────────────────
-ADMIN_EMAIL=admin@company.com    # created on first startup
+# ── Admin Auth ───────────────────────────────────────────────
+ADMIN_EMAIL=admin@almeezan.com
 ADMIN_PASSWORD=change-me-now
+JWT_SECRET_KEY=<32-byte hex>
+JWT_EXPIRE_MINUTES=480           # 8 hours
+
+
 ```
 
 ---
 
-## 15. Local Development Setup
+## 16. Local Development Setup
 
-### Prerequisites
-- Docker Desktop (or Docker Engine + Compose)
-- Python 3.11+
-- Node.js 20+
-- Git
-- Terraform 1.6+ (for infra work only)
-
-### First-Time Setup
 ```bash
-# 1. Clone repo
-git clone https://github.com/your-org/kms.git
-cd kms
-
-# 2. Copy env file and fill in your API keys
+# 1. Clone and configure
+git clone https://github.com/saademad200/banking-kms.git
+cd banking-kms
 cp .env.example .env
-# Edit: set GROQ_API_KEY and ADMIN_PASSWORD at minimum
+# Edit .env: set GROQ_API_KEY + ADMIN_PASSWORD at minimum
 
-# 3. Install pre-commit hooks
-pip install pre-commit
-pre-commit install
-pre-commit install --hook-type commit-msg
+# 2. Install pre-commit hooks
+pip install pre-commit && pre-commit install
 
-# 4. Start all services
+# 3. Start all services
 docker compose up --build
+# API:            http://localhost:8000
+# API Docs:       http://localhost:8000/docs
+# Admin Panel:    http://localhost:8000/admin
+# Chat Widget:    http://localhost:8000/static/widget.html
+# DynamoDB Admin: http://localhost:8888
+# ChromaDB:       http://localhost:8002
 
-# Services available at:
-#   API:            http://localhost:8000
-#   API Docs:       http://localhost:8000/docs
-#   Frontend:       http://localhost:3000
-#   DynamoDB Admin: http://localhost:8888
-#   ChromaDB:       http://localhost:8002
 
-# 5. Create DynamoDB tables (local)
+# 4. Create DynamoDB tables (local)
 docker compose exec api python -m app.core.dynamo_init
 
-# 6. Download knowledge base documents (optional but recommended)
-pip install httpx
-python knowledge_base/scripts/seed_knowledge_base.py
+# 5. Seed knowledge base (download Al Meezan + MUFAP docs)
+pip install httpx beautifulsoup4
+python knowledge_base/scripts/seed.py
 
-# 7. Ingest knowledge base (after download completes)
-curl -X POST http://localhost:8000/api/v1/admin/reindex \
-  -H "Authorization: Bearer $(curl -s -X POST http://localhost:8000/api/v1/auth/login \
-    -H 'Content-Type: application/json' \
-    -d '{"email":"admin@company.com","password":"change-me-now"}' | jq -r .accessToken)"
+# 6. Ingest knowledge base into ChromaDB
+docker compose exec api python -m app.pipeline.ingestion --seed
 
-# 8. Run tests
-make test-unit        # fast, no deps
-make test-integration # requires docker-compose up
+# 7. Run tests
+make test-unit
+make test-integration
 ```
 
----
 
-## 16. Slack Bot — Interaction Spec
-
-### Setup (one-off, per Slack workspace)
-1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App → From Scratch**
-2. Name: `KMS Bot` | Workspace: your company Slack
-3. **Socket Mode** → Enable Socket Mode → Generate App-Level Token (scope: `connections:write`) → copy as `SLACK_APP_TOKEN`
-4. **OAuth & Permissions** → Bot Token Scopes: `app_mentions:read`, `chat:write`, `commands`, `files:read`, `im:history`, `im:write`
-5. Install App to Workspace → copy Bot User OAuth Token as `SLACK_BOT_TOKEN`
-6. **Slash Commands** → Create command `/kms` (Request URL can be anything with Socket Mode)
-7. **Event Subscriptions** → Subscribe to: `app_mention`, `message.im`
-8. **Incoming Webhooks** → Enable → Add to Workspace → pick `#kms-deploys` channel → copy URL as `SLACK_WEBHOOK_URL`
-
-> All of the above is **free** on Slack's free plan.
-
----
-
-### Slash Command: `/kms <question>`
-Available to all workspace members.
-
-**Interaction flow:**
-1. Employee types `/kms What is the SBP provisioning for a Substandard loan?`
-2. Bot immediately responds with `"Searching knowledge base..."` (ack within 3s Slack deadline)
-3. Bot calls `POST /api/v1/chat/sessions/{sessionId}/message` and accumulates SSE stream
-4. Bot updates the message with the full Block Kit reply
-
-**Block Kit reply format:**
-```
-┌───────────────────────────────────────────────┐
-│ 🧠 KMS Answer                               │
-│───────────────────────────────────────────────│
-│ According to SBP Prudential Regulations,      │
-│ a *Substandard* loan (180–269 days overdue)   │
-│ requires *25% provisioning*.                  │
-│───────────────────────────────────────────────│
-│ 📚 *Sources*                                  │
-│ • SBP_PR_SME_2025.pdf — p.14 (score: 0.91)  │
-│ • SBP_PR_Consumer.pdf — p.8  (score: 0.84)  │
-└───────────────────────────────────────────────┘
-```
-
----
-
-### App Mention: `@kms-bot <question>`
-Same behaviour as `/kms`. Bot replies in the thread of the mention.
-
----
-
-### Direct Message to Bot
-Any text DM to the bot — treated as `/kms <message>`.
-Bot replies in the same DM conversation.
-
----
-
-### Admin Document Upload (DM a file)
-Only Slack users whose `userId` maps to an `admin` role in DynamoDB may upload.
-
-**Flow:**
-1. Admin DMs the bot a PDF/DOCX/MD/TXT file
-2. Bot verifies sender is admin via `GET /api/v1/auth/me` (using internal API key)
-3. If not admin: bot replies `❌ You don’t have permission to upload documents.`
-4. Bot downloads file from Slack CDN using `SLACK_BOT_TOKEN`
-5. Bot calls `POST /api/v1/documents/upload` with file + optional category from DM text
-6. Bot replies: `⏳ Processing SBP_SME_2025.pdf...`
-7. Bot polls `GET /api/v1/documents/{id}` every 5s (max 10 attempts)
-8. On `status=ready`: `✅ Indexed *SBP_SME_2025.pdf* — 84 chunks ready`
-9. On `status=failed`: `❌ Processing failed: {failureReason}`
-
----
-
-### Admin Slash Command: `/kms-admin`
-Only usable by Slack users mapped to `admin` role.
-
-| Command | Action |
-|---------|--------|
-| `/kms-admin list` | Lists all documents in KB with status and chunk count |
-| `/kms-admin list --category sbp` | Filter by category |
-| `/kms-admin delete <documentId>` | Delete document + all chunks (asks confirmation first) |
-| `/kms-admin reindex <documentId>` | Re-runs ingestion for one document |
-| `/kms-admin users` | Lists all users and their roles |
-| `/kms-admin promote <email>` | Sets user role to `admin` |
-| `/kms-admin disable <email>` | Sets `isActive=false` for a user |
-
----
-
-### Knowledge Base Access Model
-
-| Action | Employee | Admin |
-|--------|----------|-------|
-| Use `/kms` to ask questions | ✅ | ✅ |
-| Upload documents (DM file to bot) | ❌ | ✅ |
-| `/kms-admin list/delete/reindex` | ❌ | ✅ |
-| `/kms-admin users/promote/disable` | ❌ | ✅ |
-
----
-
-## 17. Deployment Guide
-
-### First-Time AWS Setup (one-off)
-
-```bash
-# 1. Bootstrap Terraform remote state (run once)
-cd infrastructure/terraform
-terraform init -backend=false
-terraform apply -target=aws_s3_bucket.terraform_state \
-               -target=aws_s3_bucket_versioning.terraform_state \
-               -target=aws_dynamodb_table.terraform_locks
-
-# 2. Create ECR repositories (one-off)
-aws ecr create-repository --repository-name kms-api
-aws ecr create-repository --repository-name kms-frontend
-
-# 3. Apply staging infrastructure
-make tf-init-staging
-make tf-plan-staging   # review output
-make tf-apply-staging
-```
-
-### Deploy New Feature
-```bash
-# Developer flow:
-git checkout -b feature/KMS-{ticket}-{description}
-# ... make changes, commit with conventional format ...
-git push origin feature/KMS-{ticket}
-# Open PR → staging branch
-# CI runs automatically
-# After approval, merge → auto-deploys to staging
-# QA verifies on staging
-# Open PR → main
-# 2 approvals required
-# GitHub Actions pauses for deployment approval
-# Approve → auto-deploys to prod
-```
-
----
-
-## Appendix: Cost Estimate
-
-| Resource | Staging/mo | Prod/mo |
-|----------|-----------|---------|
-| ECS Fargate (standard) | ~$12 | ~$24 |
-| ALB | ~$18 | ~$18 |
-| NAT Gateway (1 AZ) | ~$5 | ~$10 |
-| DynamoDB (PAY_PER_REQUEST) | ~$0–3 | ~$3–8 |
-| EFS (ChromaDB volume) | ~$1 | ~$2 |
-| S3 (10GB) | ~$0.25 | ~$0.25 |
-| **Total** | **~$36–39** | **~$57–62** |
-
-> LLM (Groq free tier) = **$0** · Embeddings (local) = **$0**

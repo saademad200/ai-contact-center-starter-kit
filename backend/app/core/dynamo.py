@@ -1,9 +1,10 @@
 """
-DynamoDB Client & Helpers
-=========================
-Create boto3 DynamoDB resource and expose table references.
-See PROJECT_PLAN.md §6 Data Models for full table schemas.
+DynamoDB Client & Table Helpers
+================================
+See PROJECT_PLAN.md §5 for all table schemas and GSIs.
 
-Tables: users, documents, chat-sessions, chat-messages
-Provide helper functions: get_item, put_item, update_item, delete_item, query_gsi
+Provides:
+- get_dynamodb_resource() → boto3 DynamoDB resource (respects DYNAMODB_ENDPOINT_URL for local)
+- get_table(table_suffix) → Table object with correct prefix
+- Table suffixes: "funds", "conversations", "messages", "tickets", "documents", "users", "response-ratings"
 """

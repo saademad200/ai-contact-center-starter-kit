@@ -1,0 +1,7 @@
+# ── Multi-stage Dockerfile for API ──
+# See PROJECT_PLAN.md §10
+FROM python:3.11-slim as base
+# TODO: Implement multi-stage build
+# Stage 1: Install dependencies
+# Stage 2: Copy app code
+# CMD: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000

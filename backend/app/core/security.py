@@ -1,10 +1,11 @@
 """
-Security Utilities
-==================
-JWT: create_access_token, create_refresh_token, verify_token
-     - Use python-jose, HS256 algorithm, SECRET_KEY from settings
-     - Access token expires: ACCESS_TOKEN_EXPIRE_MINUTES
-     - Refresh token expires: REFRESH_TOKEN_EXPIRE_DAYS
+Security: JWT + Password Hashing
+==================================
+See PROJECT_PLAN.md §6 for auth endpoints.
 
-Password: hash_password (bcrypt cost 12), verify_password
+Provides:
+- create_access_token(user_id, role) → JWT string
+- verify_token(token) → dict payload or raise
+- hash_password(password) → bcrypt hash
+- verify_password(plain, hashed) → bool
 """

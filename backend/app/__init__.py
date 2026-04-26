@@ -1,2 +1,1 @@
-# KMS Backend — FastAPI Application
-# See PROJECT_PLAN.md for full implementation spec
+# See PROJECT_PLAN.md for full specification.

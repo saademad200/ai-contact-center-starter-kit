@@ -1,59 +1,44 @@
-.PHONY: dev stop migrate-local test lint format build push tf-plan-staging tf-apply-staging tf-plan-prod
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# AI Contact Centre — Makefile
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# ── Local Dev ─────────────────────────────────────────────────────────────────
+.PHONY: dev stop logs test-unit test-integration lint fmt seed tables
+
+# ── Local Development ─────────────────────────────────
 dev:
-	docker compose up --build
+	docker compose up --build -d
 
 stop:
-	docker compose down -v
+	docker compose down
 
-migrate-local:
+logs:
+	docker compose logs -f api
+
+# ── Database ──────────────────────────────────────────
+tables:
 	docker compose exec api python -m app.core.dynamo_init
 
-# ── Testing ───────────────────────────────────────────────────────────────────
-test:
-	docker compose exec api pytest tests/ -v --tb=short
+# ── Knowledge Base ────────────────────────────────────
+seed:
+	pip install httpx beautifulsoup4 && python knowledge_base/scripts/seed.py
 
+ingest:
+	docker compose exec api python -m app.pipeline.ingestion --seed
+
+# ── Testing ───────────────────────────────────────────
 test-unit:
-	docker compose exec api pytest tests/unit/ -v
+	cd backend && python -m pytest tests/unit/ -v --cov=app --cov-report=term-missing
 
 test-integration:
-	docker compose exec api pytest tests/integration/ -v
+	cd backend && python -m pytest tests/integration/ -v
 
-test-cov:
-	docker compose exec api pytest tests/ --cov=app --cov-report=xml --cov-report=term-missing
-
-# ── Linting ───────────────────────────────────────────────────────────────────
+# ── Code Quality ──────────────────────────────────────
 lint:
-	cd backend && ruff check . && mypy app/ --ignore-missing-imports
+	cd backend && ruff check . && mypy app/
 
-format:
+fmt:
 	cd backend && ruff format .
 
-# ── Docker ────────────────────────────────────────────────────────────────────
-build:
-	docker build -f infrastructure/docker/Dockerfile.api -t kms-api:latest ./backend
-	docker build -f infrastructure/docker/Dockerfile.frontend -t kms-frontend:latest ./frontend
-
-# ── Terraform Staging ─────────────────────────────────────────────────────────
-tf-init-staging:
-	cd infrastructure/terraform/environments/staging && terraform init
-
-tf-plan-staging:
-	cd infrastructure/terraform/environments/staging && terraform plan -var-file=terraform.tfvars
-
-tf-apply-staging:
-	cd infrastructure/terraform/environments/staging && terraform apply -var-file=terraform.tfvars
-
-tf-destroy-staging:
-	cd infrastructure/terraform/environments/staging && terraform destroy -var-file=terraform.tfvars
-
-# ── Terraform Prod ────────────────────────────────────────────────────────────
-tf-init-prod:
-	cd infrastructure/terraform/environments/prod && terraform init
-
-tf-plan-prod:
-	cd infrastructure/terraform/environments/prod && terraform plan -var-file=terraform.tfvars
-
-tf-apply-prod:
-	cd infrastructure/terraform/environments/prod && terraform apply -var-file=terraform.tfvars
+# ── Pre-commit ────────────────────────────────────────
+hooks:
+	pip install pre-commit && pre-commit install

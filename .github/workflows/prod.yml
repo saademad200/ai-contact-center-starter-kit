@@ -1,5 +1,5 @@
+# Production Deploy — See PROJECT_PLAN.md §12
 name: Deploy to Production
-
 on:
   push:
     branches: [main]
@@ -8,99 +8,38 @@ permissions:
   id-token: write
   contents: read
 
-env:
-  AWS_REGION: us-east-1
-  ECR_REPO_API: kms-api
-  ECR_REPO_FRONTEND: kms-frontend
-  ECS_CLUSTER: kms-prod-cluster
-  ECS_SERVICE_API: kms-prod-api
-  ECS_SERVICE_FRONTEND: kms-prod-frontend
-
 jobs:
-  ci:
-    uses: ./.github/workflows/ci.yml
-
-  # Manual approval gate — configured in GitHub repo Settings → Environments → production
-  # Add required reviewers: 1 senior engineer + 1 team lead
   deploy:
-    needs: ci
     runs-on: ubuntu-latest
-    environment: production   # ← this triggers the approval gate
-
+    environment: production  # Manual approval gate
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials (OIDC)
+      - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/kms-prod-github-deploy
-          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
 
-      - name: Login to Amazon ECR
-        id: ecr-login
+      - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push API image (tagged with SHA + prod-latest)
-        env:
-          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
-          IMAGE_TAG: prod-${{ github.sha }}
+      - name: Build and Push
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPO_API:$IMAGE_TAG \
-                       -t $ECR_REGISTRY/$ECR_REPO_API:prod-latest \
-            -f infrastructure/docker/Dockerfile.api .
-          docker push $ECR_REGISTRY/$ECR_REPO_API:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPO_API:prod-latest
+          IMAGE_TAG=prod-${{ github.sha }}
+          docker build -f infrastructure/docker/Dockerfile.api -t ${{ secrets.ECR_REPO }}:$IMAGE_TAG .
+          docker build -f infrastructure/docker/Dockerfile.api -t ${{ secrets.ECR_REPO }}:prod-latest .
+          docker push ${{ secrets.ECR_REPO }}:$IMAGE_TAG
+          docker push ${{ secrets.ECR_REPO }}:prod-latest
 
-      - name: Build and push Frontend image
-        env:
-          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
-          IMAGE_TAG: prod-${{ github.sha }}
-        run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPO_FRONTEND:$IMAGE_TAG \
-                       -t $ECR_REGISTRY/$ECR_REPO_FRONTEND:prod-latest \
-            -f infrastructure/docker/Dockerfile.frontend .
-          docker push $ECR_REGISTRY/$ECR_REPO_FRONTEND:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPO_FRONTEND:prod-latest
-
-      - name: Deploy API to ECS Production
+      - name: Deploy to ECS
         run: |
           aws ecs update-service \
-            --cluster $ECS_CLUSTER \
-            --service $ECS_SERVICE_API \
-            --force-new-deployment \
-            --no-cli-pager
-          aws ecs wait services-stable \
-            --cluster $ECS_CLUSTER \
-            --services $ECS_SERVICE_API
+            --cluster acc-prod \
+            --service acc-api \
+            --force-new-deployment
 
-      - name: Deploy Frontend to ECS Production
-        run: |
-          aws ecs update-service \
-            --cluster $ECS_CLUSTER \
-            --service $ECS_SERVICE_FRONTEND \
-            --force-new-deployment \
-            --no-cli-pager
-          aws ecs wait services-stable \
-            --cluster $ECS_CLUSTER \
-            --services $ECS_SERVICE_FRONTEND
-
-      - name: Health check (wait 30s then verify)
+      - name: Health Check
         run: |
           sleep 30
-          curl -f ${{ secrets.PROD_URL }}/health || exit 1
-
-      - name: Notify Slack on success
-        if: success()
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          payload: '{"text":"✅ KMS deployed to production — commit ${{ github.sha }}"}'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-      - name: Notify Slack on failure
-        if: failure()
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          payload: '{"text":"❌ KMS production deployment FAILED — commit ${{ github.sha }}"}'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          curl -f http://${{ secrets.ALB_DNS }}/health || exit 1
