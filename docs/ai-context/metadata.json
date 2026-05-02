@@ -1,0 +1,15 @@
+{
+  "title": "Alfalah Investments AI Contact Centre",
+  "summary": "Full architectural and implementation context for the Alfalah GPT project. A production-grade AI customer support chatbot for Alfalah Investments (mutual fund AMC in Pakistan). Built with FastAPI, OpenAI GPT-4o-mini fine-tuning, RAG (ChromaDB), AWS ECS Fargate, CodeDeploy Blue/Green, GitHub Actions OIDC, and Langfuse observability. Project lives at /home/saad/Documents/Code/Devops/Project/",
+  "created_at": "2026-05-03T00:03:00+05:00",
+  "last_updated": "2026-05-03T00:03:00+05:00",
+  "conversation_id": "e7b27598-b258-40a2-b476-6d658e58960b",
+  "references": [
+    "/home/saad/Documents/Code/Devops/Project/docs/PROJECT_CONTEXT.md",
+    "/home/saad/Documents/Code/Devops/Project/docs/ARCHITECTURE_DECISIONS.md",
+    "/home/saad/Documents/Code/Devops/Project/docs/INFRASTRUCTURE_CHECKLIST.md",
+    "/home/saad/Documents/Code/Devops/Project/docs/DATA_GATHERING_GUIDE.md",
+    "/home/saad/Documents/Code/Devops/Project/PROJECT_PLAN.md",
+    "/home/saad/Documents/Code/Devops/Project/TASK_DISTRIBUTION.md"
+  ]
+}
