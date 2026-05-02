@@ -14,7 +14,12 @@ repos:
     hooks:
       - id: ruff
         args: [--fix]
-      - id: ruff-format
+
+  - repo: https://github.com/psf/black
+    rev: 24.2.0
+    hooks:
+      - id: black
+        args: [--line-length=88]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.14.1
@@ -33,3 +38,10 @@ repos:
     rev: v1.5.0
     hooks:
       - id: detect-secrets
+
+  - repo: https://github.com/returntocorp/semgrep
+    rev: v1.64.0
+    hooks:
+      - id: semgrep
+        name: semgrep SAST
+        args: ['--config=auto', '--error']
