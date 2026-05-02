@@ -79,9 +79,8 @@ resource "aws_ecs_service" "main" {
     container_port   = var.container_port
   }
 
-  deployment_circuit_breaker {
-    enable   = true
-    rollback = true
+  deployment_controller {
+    type = "CODE_DEPLOY"
   }
 
   tags = {

@@ -82,7 +82,7 @@ module "ecs" {
   ecr_repository_url          = module.ecr.ecr_repository_url
   ecs_task_execution_role_arn = module.iam.ecs_task_execution_role_arn
   ecs_task_iam_role_arn       = module.iam.ecs_task_iam_role_arn
-  target_group_arn            = module.load_balancer.target_group_arn
+  target_group_arn            = module.load_balancer.blue_target_group_arn
   security_group_ids          = [module.security_group.ecs_tasks_security_group_id]
   private_subnet_ids          = module.vpc.private_subnet_ids
   desired_count               = 1
@@ -105,4 +105,17 @@ module "s3" {
   region              = var.region
   bucket_name         = var.s3_bucket_name
   lambda_function_arn = module.lambda.function_arn
+}
+
+module "code_deploy" {
+  source                       = "../../modules/code_deploy"
+  project                      = var.project
+  environment                  = var.environment
+  region                       = var.region
+  codedeploy_service_role_arn  = module.iam.codedeploy_service_role_arn
+  cluster_name                 = module.ecs.cluster_name
+  service_name                 = module.ecs.service_name
+  alb_listener_arn             = module.load_balancer.alb_listener_arn
+  blue_target_group_name       = module.load_balancer.blue_target_group_name
+  green_target_group_name      = module.load_balancer.green_target_group_name
 }
