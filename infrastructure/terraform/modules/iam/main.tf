@@ -21,6 +21,28 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+resource "aws_iam_policy" "ecs_secrets_policy" {
+  name = "${var.project}-${var.environment}-ecs-secrets-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = "*" # Restrict to specific ARNs in production
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_secrets_policy_attachment" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = aws_iam_policy.ecs_secrets_policy.arn
+}
+
 # ECS Task Role (used by the application container itself)
 resource "aws_iam_role" "ecs_task_role" {
   name = "${var.project}-${var.environment}-ecs-task-role"
