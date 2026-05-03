@@ -128,7 +128,7 @@ resource "aws_lb_listener_rule" "api_routing" {
 
   condition {
     path_pattern {
-      values = ["/api/*", "/admin/*", "/static/*", "/ws/*"]
+      values = ["/api/*", "/ws/*"]
     }
   }
 }
