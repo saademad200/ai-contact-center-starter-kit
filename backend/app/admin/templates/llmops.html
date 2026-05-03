@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}LLMOps — Alfalah GPT Admin{% endblock %}
+{% block page_title %}LLMOps{% endblock %}
+{% block content %}
+
+<!-- Prompt Registry -->
+<div class="card mb-6">
+  <div class="card-header">
+    <h3>Prompt Registry</h3>
+    <button class="btn btn-sm" onclick="toggleSection('new-prompt')">+ New Prompt</button>
+  </div>
+
+  <div id="new-prompt" class="card-body collapsible hidden">
+    <form method="POST" action="/admin/llmops/prompts">
+      <div class="form-group">
+        <label for="p-label">Label</label>
+        <input id="p-label" name="label" required placeholder="e.g. v2-concise">
+      </div>
+      <div class="form-group">
+        <label for="p-content">Prompt Content</label>
+        <textarea id="p-content" name="content" rows="6" required
+          placeholder="You are Alfalah GPT…"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">Save Prompt</button>
+    </form>
+  </div>
+
+  <table class="data-table">
+    <thead><tr><th>Label</th><th>Created</th><th>Active</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for prompt in prompts %}
+      <tr>
+        <td>{{ prompt.label }}</td>
+        <td>{{ prompt.created_at | replace("T"," ") | truncate(19,True,"") }}</td>
+        <td>
+          {% if prompt.is_active %}
+          <span class="badge badge-success">Active</span>
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          <form method="POST" action="/admin/llmops/prompts/{{ prompt.pk }}/activate">
+            <button type="submit" class="btn btn-sm">Activate</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="empty-state">No prompts yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Fine-Tuning Jobs -->
+<div class="card mb-6">
+  <div class="card-header">
+    <h3>Fine-Tuning Jobs</h3>
+    <button class="btn btn-sm" onclick="toggleSection('new-ft')">+ Trigger Job</button>
+  </div>
+
+  <div id="new-ft" class="card-body collapsible hidden">
+    <form method="POST" action="/admin/llmops/finetune">
+      <div class="form-group">
+        <label for="s3-key">S3 Key (cleaned JSONL)</label>
+        <input id="s3-key" name="s3_key" required placeholder="cleaned/training.jsonl">
+      </div>
+      <button type="submit" class="btn btn-primary">Start Fine-Tuning</button>
+    </form>
+  </div>
+
+  <table class="data-table">
+    <thead><tr><th>Job ID</th><th>Status</th><th>Model</th><th>Created</th><th>Activate</th></tr></thead>
+    <tbody>
+      {% for job in jobs %}
+      <tr>
+        <td><code class="mono">{{ job.pk }}</code></td>
+        <td>
+          <span class="badge badge-{{
+            'success' if job.status == 'succeeded' else
+            'warning' if job.status == 'running' else
+            'error'   if job.status == 'failed' else
+            'muted'
+          }}">{{ job.status }}</span>
+        </td>
+        <td>{{ job.openai_model_id | default('—') }}</td>
+        <td>{{ job.created_at | replace("T"," ") | truncate(19,True,"") }}</td>
+        <td>
+          {% if job.openai_model_id %}
+          <form method="POST" action="/admin/llmops/models/{{ job.pk }}/activate">
+            <button type="submit" class="btn btn-sm">Set Active</button>
+          </form>
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="empty-state">No fine-tuning jobs yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% block extra_js %}
+<script>
+function toggleSection(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('hidden');
+}
+</script>
+{% endblock %}
+{% endblock %}

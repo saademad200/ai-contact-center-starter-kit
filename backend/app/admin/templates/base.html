@@ -1,3 +1,76 @@
-<!-- Admin Panel Base Layout — See PROJECT_PLAN.md §8 -->
-<!-- Sidebar nav: Dashboard, Conversations, Tickets, Knowledge Base, Quality, Funds -->
-<!-- Content block for child templates -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Alfalah GPT Admin{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/static/admin.css">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+{% if request.session.get("user") %}
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-dot"></div>
+      <span>Alfalah GPT</span>
+      <small>Admin</small>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/admin/dashboard" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
+        <span class="nav-icon">📊</span> Dashboard
+      </a>
+      <a href="/admin/conversations" class="nav-item {% if active == 'conversations' %}active{% endif %}">
+        <span class="nav-icon">💬</span> Conversations
+      </a>
+      <a href="/admin/tickets" class="nav-item {% if active == 'tickets' %}active{% endif %}">
+        <span class="nav-icon">🎫</span> Tickets
+      </a>
+      <a href="/admin/knowledge-base" class="nav-item {% if active == 'knowledge_base' %}active{% endif %}">
+        <span class="nav-icon">📚</span> Knowledge Base
+      </a>
+      <a href="/admin/llmops" class="nav-item {% if active == 'llmops' %}active{% endif %}">
+        <span class="nav-icon">🤖</span> LLMOps
+      </a>
+      <a href="/admin/quality" class="nav-item {% if active == 'quality' %}active{% endif %}">
+        <span class="nav-icon">⭐</span> Quality
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="/admin/logout" class="logout-btn">Sign out</a>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main-content">
+    <header class="topbar">
+      <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+      <div class="topbar-user">
+        <span class="user-badge">Admin</span>
+      </div>
+    </header>
+    <div class="content-body">
+      {% with messages = get_flashed_messages(with_categories=True) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+{% else %}
+  {% block auth_content %}{% endblock %}
+{% endif %}
+
+<script src="/admin/static/admin.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

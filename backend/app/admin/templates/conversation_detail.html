@@ -1,1 +1,35 @@
-<!-- Conversation Detail — full transcript with tool calls highlighted -->
+{% extends "base.html" %}
+{% block title %}Conversation {{ conversation.pk }} — Admin{% endblock %}
+{% block page_title %}Conversation Detail{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="/admin/conversations">← Conversations</a>
+  <span>/ {{ conversation.pk }}</span>
+</div>
+
+<div class="meta-bar">
+  <span class="badge badge-{{ 'success' if conversation.status == 'active' else 'muted' }}">
+    {{ conversation.status }}
+  </span>
+  <span class="meta-item">Started: {{ conversation.created_at | replace("T"," ") | truncate(19,True,"") }}</span>
+</div>
+
+<div class="chat-transcript card">
+  {% for msg in messages %}
+  <div class="transcript-msg transcript-{{ msg.role }}">
+    <div class="transcript-role">{{ msg.role | upper }}</div>
+    <div class="transcript-bubble">{{ msg.content }}</div>
+    <div class="transcript-time">{{ msg.created_at | replace("T"," ") | truncate(19,True,"") }}</div>
+  </div>
+  {% else %}
+  <div class="empty-state">No messages in this conversation.</div>
+  {% endfor %}
+</div>
+
+<div class="danger-zone">
+  <form method="POST" action="/admin/conversations/{{ conversation.pk }}/archive"
+        onsubmit="return confirm('Archive this conversation?')">
+    <button type="submit" class="btn btn-danger">Archive Conversation</button>
+  </form>
+</div>
+{% endblock %}

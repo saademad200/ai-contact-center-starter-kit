@@ -1,1 +1,37 @@
-<!-- Dashboard — active conversations, open tickets, quality metrics -->
+{% extends "base.html" %}
+{% block title %}Dashboard — Alfalah GPT Admin{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon">💬</div>
+    <div class="stat-value">{{ stats.total_conversations }}</div>
+    <div class="stat-label">Total Conversations</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">🎫</div>
+    <div class="stat-value">{{ stats.open_tickets }}</div>
+    <div class="stat-label">Open Tickets</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">📚</div>
+    <div class="stat-value">{{ stats.total_documents }}</div>
+    <div class="stat-label">KB Documents</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">🤖</div>
+    <div class="stat-value">{{ stats.active_model | truncate(18, True, '…') }}</div>
+    <div class="stat-label">Active Model</div>
+  </div>
+</div>
+
+<div class="card mt-6">
+  <div class="card-header">
+    <h3>Active System Prompt</h3>
+    <a href="/admin/llmops" class="btn btn-sm">Manage →</a>
+  </div>
+  <div class="card-body">
+    <pre class="prompt-preview">{{ stats.active_prompt | truncate(400) }}</pre>
+  </div>
+</div>
+{% endblock %}

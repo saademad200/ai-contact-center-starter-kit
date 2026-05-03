@@ -1,1 +1,50 @@
-<!-- Conversations List — filter by status, click to view detail -->
+{% extends "base.html" %}
+{% block title %}Conversations — Alfalah GPT Admin{% endblock %}
+{% block page_title %}Conversations{% endblock %}
+{% block content %}
+<div class="toolbar">
+  <input type="search" id="conv-search" class="search-input" placeholder="Search by ID or status…">
+</div>
+
+<div class="card">
+  <table class="data-table" id="conv-table">
+    <thead>
+      <tr>
+        <th>Conversation ID</th>
+        <th>Status</th>
+        <th>Started</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for conv in conversations %}
+      <tr>
+        <td><code class="mono">{{ conv.pk }}</code></td>
+        <td>
+          <span class="badge badge-{{ 'success' if conv.status == 'active' else 'muted' }}">
+            {{ conv.status }}
+          </span>
+        </td>
+        <td>{{ conv.created_at | replace("T", " ") | truncate(19, True, "") }}</td>
+        <td>
+          <a href="/admin/conversations/{{ conv.pk }}" class="btn btn-sm">View →</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="empty-state">No conversations yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% block extra_js %}
+<script>
+document.getElementById('conv-search').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('#conv-table tbody tr').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+});
+</script>
+{% endblock %}
+{% endblock %}
