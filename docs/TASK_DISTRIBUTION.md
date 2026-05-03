@@ -85,3 +85,44 @@
 | Create `conversations.html` and `conversation_detail.html` to view past chat transcripts | P1 |
 | Write custom CSS (`admin.css`) and JS for forms, modals, and DataTables | P1 |
 | Implement FastAPI views (`admin/views.py`) returning `TemplateResponse` for all admin pages | P1 |
+
+---
+
+## Dependency Graph
+
+```mermaid
+graph TD
+    P1["👷 Person 1\nDevOps / Infrastructure\nTerraform · Docker · CI/CD"]
+
+    P2["🤖 Person 2\nAI Agent & LLMOps\nOrchestrator · Tools · RAG · Fine-Tuning"]
+
+    P3["🔧 Person 3\nBackend API\nFastAPI · WebSocket · DynamoDB · Lambda"]
+
+    P4["💬 Person 4\nChat Widget\nJS · CSS · demo.html"]
+
+    P5["🖥️ Person 5\nAdmin Dashboard\nJinja2 · HTML/CSS · LLMOps UI"]
+
+    P1 -->|"Deploys ECS cluster\nwhere all services run"| P3
+    P1 -->|"Provisions S3, Lambda\nfor data pipeline"| P2
+    P3 -->|"WebSocket endpoint\nfor message streaming"| P4
+    P3 -->|"REST APIs for\nadmin panel data"| P5
+    P2 -->|"agent/orchestrator.py\ncalled inside chat_ws.py"| P3
+    P3 -->|"fund_data_service\nDynamoDB queries"| P2
+```
+
+### Who Can Start Without Waiting?
+| Person | Can Start Immediately? | Blocked On |
+|--------|----------------------|------------|
+| P1 (Infra) | ✅ Yes | — |
+| P2 (AI) | ✅ Yes | Can mock DynamoDB and use local ChromaDB |
+| P3 (Backend) | ✅ Yes | — |
+| P4 (Widget) | ✅ Yes | Can use a local mock WebSocket server |
+| P5 (Admin) | ✅ Yes | Can build static HTML/CSS immediately |
+
+### Integration Checkpoints
+| Checkpoint | Who | When |
+|-----------|-----|------|
+| P3's WebSocket endpoint working | P3 → P4 can connect real widget | Day 2 end |
+| P2's orchestrator importable | P3 can wire `chat_ws.py` → agent | Day 2 end |
+| P1's staging Terraform applied | Everyone can test on AWS | Day 3 |
+| P3's admin REST APIs ready | P5 can wire live data to templates | Day 4 |
