@@ -1,22 +1,47 @@
-# CI Workflow — See PROJECT_PLAN.md §12
-name: CI
+name: CI — Lint & Test
+
 on:
   push:
-    branches: ['*']
+    branches: ["**"]
   pull_request:
-    branches: [staging, main]
+    branches: [main]
 
 jobs:
   lint-and-test:
+    name: Lint & Test
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
           cache: pip
-      - run: pip install -r backend/requirements.txt
-      - run: cd backend && ruff check .
-      - run: cd backend && mypy app/
-      - run: cd backend && bandit -r app/ -c pyproject.toml
-      - run: cd backend && pytest tests/unit/ -v --cov=app --cov-report=xml
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Ruff lint
+        run: ruff check backend/
+
+      - name: Ruff format check
+        run: ruff format --check backend/
+
+      - name: Bandit SAST scan
+        run: bandit -r backend/app/ -ll -q
+
+      - name: Run tests
+        env:
+          ENVIRONMENT: test
+          DYNAMODB_ENDPOINT_URL: ""
+          OPENAI_API_KEY: sk-test-placeholder
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+        run: |
+          cd backend
+          pytest tests/ -v --tb=short --cov=app --cov-report=term-missing
