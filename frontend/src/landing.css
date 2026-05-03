@@ -1,0 +1,80 @@
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; color: #1a2332; background: #f8fafc; }
+
+    /* Nav */
+    nav {
+      background: #003057;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem; height: 64px;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .nav-logo { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; }
+    .nav-logo span { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.3px; }
+    .nav-logo-dot { width: 8px; height: 8px; background: #F37021; border-radius: 50%; }
+    nav ul { list-style: none; display: flex; gap: 2rem; }
+    nav a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.9rem; transition: color 0.2s; }
+    nav a:hover { color: #fff; }
+    .nav-admin {
+      background: #F37021; color: #fff !important;
+      padding: 8px 18px; border-radius: 6px; font-weight: 600;
+    }
+    .nav-admin:hover { background: #d45e10 !important; color: #fff; }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, #003057 0%, #004d8c 60%, #0066bb 100%);
+      color: #fff; text-align: center;
+      padding: 6rem 2rem 5rem;
+    }
+    .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 700; line-height: 1.2; margin-bottom: 1rem; }
+    .hero h1 span { color: #F37021; }
+    .hero p { font-size: 1.1rem; opacity: 0.85; max-width: 600px; margin: 0 auto 2rem; }
+    .hero-cta { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .btn-primary {
+      background: #F37021; color: #fff; border: none;
+      padding: 14px 32px; border-radius: 8px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; text-decoration: none; transition: background 0.2s, transform 0.15s;
+      display: inline-block;
+    }
+    .btn-primary:hover { background: #d45e10; transform: translateY(-1px); }
+    .btn-outline {
+      background: transparent; color: #fff;
+      border: 2px solid rgba(255,255,255,0.5);
+      padding: 14px 32px; border-radius: 8px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; text-decoration: none; transition: border-color 0.2s;
+      display: inline-block;
+    }
+    .btn-outline:hover { border-color: #fff; }
+
+    /* Stats */
+    .stats {
+      display: flex; justify-content: center; gap: 3rem; flex-wrap: wrap;
+      padding: 2.5rem 2rem;
+      background: #fff;
+      border-bottom: 1px solid #e8edf2;
+    }
+    .stat { text-align: center; }
+    .stat-value { font-size: 2rem; font-weight: 700; color: #003057; }
+    .stat-label { font-size: 0.85rem; color: #6b7a90; margin-top: 4px; }
+
+    /* Funds grid */
+    .section { padding: 4rem 2rem; max-width: 1200px; margin: 0 auto; }
+    .section-title { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .section-sub { color: #6b7a90; margin-bottom: 2.5rem; }
+    .funds-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; }
+    .fund-card {
+      background: #fff; border: 1px solid #e8edf2; border-radius: 12px;
+      padding: 1.5rem;
+      transition: box-shadow 0.2s, transform 0.15s;
+    }
+    .fund-card:hover { box-shadow: 0 8px 24px rgba(0,48,87,0.1); transform: translateY(-2px); }
+    .fund-tag {
+      display: inline-block; font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px; padding: 3px 10px; border-radius: 20px; margin-bottom: 12px;
+    }
+    .tag-islamic { background: #e8f5e9; color: #2e7d32; }
+    .tag-equity   { background: #fff3e0; color: #e65100; }
+    .tag-income   { background: #e3f2fd; color: #1565c0; }
+    .tag-money    { background: #f3e5f5; color: #6a1b9a; }
+    .fund-name { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
