@@ -1,34 +1,191 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alfalah Investments - Demo</title>
-    <style>
-        body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background-color: #f4f7f6; }
-        header { background-color: #003057; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
-        .logo { font-size: 1.5rem; font-weight: bold; }
-        nav a { color: white; text-decoration: none; margin-left: 1rem; }
-        .hero { padding: 4rem 2rem; text-align: center; background-color: #fff; border-bottom: 1px solid #ddd; }
-        .admin-login { background-color: #f37021; color: white; padding: 0.5rem 1rem; border-radius: 4px; font-weight: bold; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alfalah Investments — Your Partner in Wealth</title>
+  <meta name="description" content="Alfalah Investments offers a wide range of mutual funds including money market, income, equity, and Islamic funds. Start investing today.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; color: #1a2332; background: #f8fafc; }
+
+    /* Nav */
+    nav {
+      background: #003057;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem; height: 64px;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .nav-logo { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; }
+    .nav-logo span { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.3px; }
+    .nav-logo-dot { width: 8px; height: 8px; background: #F37021; border-radius: 50%; }
+    nav ul { list-style: none; display: flex; gap: 2rem; }
+    nav a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.9rem; transition: color 0.2s; }
+    nav a:hover { color: #fff; }
+    .nav-admin {
+      background: #F37021; color: #fff !important;
+      padding: 8px 18px; border-radius: 6px; font-weight: 600;
+    }
+    .nav-admin:hover { background: #d45e10 !important; color: #fff; }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, #003057 0%, #004d8c 60%, #0066bb 100%);
+      color: #fff; text-align: center;
+      padding: 6rem 2rem 5rem;
+    }
+    .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 700; line-height: 1.2; margin-bottom: 1rem; }
+    .hero h1 span { color: #F37021; }
+    .hero p { font-size: 1.1rem; opacity: 0.85; max-width: 600px; margin: 0 auto 2rem; }
+    .hero-cta { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .btn-primary {
+      background: #F37021; color: #fff; border: none;
+      padding: 14px 32px; border-radius: 8px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; text-decoration: none; transition: background 0.2s, transform 0.15s;
+      display: inline-block;
+    }
+    .btn-primary:hover { background: #d45e10; transform: translateY(-1px); }
+    .btn-outline {
+      background: transparent; color: #fff;
+      border: 2px solid rgba(255,255,255,0.5);
+      padding: 14px 32px; border-radius: 8px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; text-decoration: none; transition: border-color 0.2s;
+      display: inline-block;
+    }
+    .btn-outline:hover { border-color: #fff; }
+
+    /* Stats */
+    .stats {
+      display: flex; justify-content: center; gap: 3rem; flex-wrap: wrap;
+      padding: 2.5rem 2rem;
+      background: #fff;
+      border-bottom: 1px solid #e8edf2;
+    }
+    .stat { text-align: center; }
+    .stat-value { font-size: 2rem; font-weight: 700; color: #003057; }
+    .stat-label { font-size: 0.85rem; color: #6b7a90; margin-top: 4px; }
+
+    /* Funds grid */
+    .section { padding: 4rem 2rem; max-width: 1200px; margin: 0 auto; }
+    .section-title { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .section-sub { color: #6b7a90; margin-bottom: 2.5rem; }
+    .funds-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; }
+    .fund-card {
+      background: #fff; border: 1px solid #e8edf2; border-radius: 12px;
+      padding: 1.5rem;
+      transition: box-shadow 0.2s, transform 0.15s;
+    }
+    .fund-card:hover { box-shadow: 0 8px 24px rgba(0,48,87,0.1); transform: translateY(-2px); }
+    .fund-tag {
+      display: inline-block; font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px; padding: 3px 10px; border-radius: 20px; margin-bottom: 12px;
+    }
+    .tag-islamic { background: #e8f5e9; color: #2e7d32; }
+    .tag-equity   { background: #fff3e0; color: #e65100; }
+    .tag-income   { background: #e3f2fd; color: #1565c0; }
+    .tag-money    { background: #f3e5f5; color: #6a1b9a; }
+    .fund-name { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+    .fund-nav  { font-size: 0.85rem; color: #6b7a90; }
+    .fund-nav strong { color: #003057; font-size: 1rem; }
+
+    /* Footer */
+    footer {
+      background: #003057; color: rgba(255,255,255,0.6);
+      text-align: center; padding: 2rem;
+      font-size: 0.85rem; margin-top: 4rem;
+    }
+    footer strong { color: #fff; }
+  </style>
 </head>
 <body>
-    <header>
-        <div class="logo">Alfalah Investments</div>
-        <nav>
-            <a href="/">Home</a>
-            <a href="/admin/login" class="admin-login">Admin Portal</a>
-        </nav>
-    </header>
-    
-    <div class="hero">
-        <h1>Welcome to Alfalah Investments</h1>
-        <p>Your trusted partner in wealth management.</p>
-        <p>Need help? Try our new Alfalah GPT Assistant in the bottom right corner.</p>
-    </div>
 
-    <!-- Inject the chat widget -->
-    <script src="/widget/widget.js"></script>
+  <!-- Navigation -->
+  <nav>
+    <a href="/" class="nav-logo">
+      <div class="nav-logo-dot"></div>
+      <span>Alfalah Investments</span>
+    </a>
+    <ul>
+      <li><a href="#">Funds</a></li>
+      <li><a href="#">About</a></li>
+      <li><a href="#">Contact</a></li>
+      <li><a href="/admin/login" class="nav-admin">Admin Portal →</a></li>
+    </ul>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <h1>Invest with <span>Confidence.</span><br>Grow with Purpose.</h1>
+    <p>Alfalah Investments offers a diverse range of Shariah-compliant and conventional mutual funds, tailored to every investor's goal.</p>
+    <div class="hero-cta">
+      <a href="#funds" class="btn-primary">Explore Funds</a>
+      <a href="#" class="btn-outline">Open an Account</a>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><div class="stat-value">PKR 150B+</div><div class="stat-label">Assets Under Management</div></div>
+    <div class="stat"><div class="stat-value">30+</div><div class="stat-label">Fund Products</div></div>
+    <div class="stat"><div class="stat-value">200,000+</div><div class="stat-label">Active Investors</div></div>
+    <div class="stat"><div class="stat-value">SECP</div><div class="stat-label">Regulated & Compliant</div></div>
+  </div>
+
+  <!-- Funds Section -->
+  <section class="section" id="funds">
+    <h2 class="section-title">Our Featured Funds</h2>
+    <p class="section-sub">Managed by Pakistan's top investment professionals</p>
+    <div class="funds-grid">
+      <div class="fund-card">
+        <span class="fund-tag tag-money">Money Market</span>
+        <div class="fund-name">Alfalah GHP Money Market Fund</div>
+        <div class="fund-nav">NAV: <strong>PKR 108.49</strong> · YTD: 21.2%</div>
+      </div>
+      <div class="fund-card">
+        <span class="fund-tag tag-islamic">Islamic</span>
+        <div class="fund-name">Alfalah Islamic Money Market Fund</div>
+        <div class="fund-nav">NAV: <strong>PKR 112.31</strong> · YTD: 20.8%</div>
+      </div>
+      <div class="fund-card">
+        <span class="fund-tag tag-income">Income</span>
+        <div class="fund-name">Alfalah GHP Income Multiplier Fund</div>
+        <div class="fund-nav">NAV: <strong>PKR 126.74</strong> · YTD: 18.5%</div>
+      </div>
+      <div class="fund-card">
+        <span class="fund-tag tag-equity">Equity</span>
+        <div class="fund-name">Alfalah GHP Stock Fund</div>
+        <div class="fund-nav">NAV: <strong>PKR 87.12</strong> · YTD: 34.1%</div>
+      </div>
+      <div class="fund-card">
+        <span class="fund-tag tag-islamic">Islamic</span>
+        <div class="fund-name">Alfalah Islamic Asset Allocation Fund</div>
+        <div class="fund-nav">NAV: <strong>PKR 152.60</strong> · YTD: 28.3%</div>
+      </div>
+      <div class="fund-card">
+        <span class="fund-tag tag-money">Pension</span>
+        <div class="fund-name">Alfalah GHP Pension Fund</div>
+        <div class="fund-nav">NAV: <strong>PKR 103.22</strong> · YTD: 19.7%</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <strong>Alfalah Investments (Pvt) Ltd.</strong> | Regulated by SECP | Mutual funds are subject to market risks.
+    <br>Past performance is not indicative of future results.
+  </footer>
+
+  <!-- Alfalah GPT Chat Widget -->
+  <script src="/widget/widget.js"></script>
+  <script>
+    AlfalahChat.init({
+      apiUrl:  "ws://" + location.host + "/ws/chat/",
+      rateUrl: "http://" + location.host + "/api/v1/ratings",
+    });
+  </script>
+
 </body>
 </html>
