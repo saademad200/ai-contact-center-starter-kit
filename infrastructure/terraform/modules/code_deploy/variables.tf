@@ -10,6 +10,10 @@ variable "region" {
   type = string
 }
 
+variable "app_name_suffix" {
+  type = string
+}
+
 variable "codedeploy_service_role_arn" {
   type = string
 }

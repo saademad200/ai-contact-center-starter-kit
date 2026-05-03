@@ -23,9 +23,9 @@ module "vpc" {
   project              = var.project
   environment          = var.environment
   region               = var.region
-  vpc_cidr             = "10.2.0.0/16"
-  public_subnet_cidrs  = ["10.2.1.0/24", "10.2.2.0/24"]
-  private_subnet_cidrs = ["10.2.10.0/24", "10.2.11.0/24"]
+  vpc_cidr             = "10.1.0.0/16"
+  public_subnet_cidrs  = ["10.1.1.0/24", "10.1.2.0/24"]
+  private_subnet_cidrs = ["10.1.10.0/24", "10.1.11.0/24"]
 }
 
 module "security_group" {
@@ -74,20 +74,48 @@ module "load_balancer" {
   security_group_ids = [module.security_group.alb_security_group_id]
 }
 
-module "ecs" {
-  source                      = "../../modules/ecs"
+module "ecs_cluster" {
+  source      = "../../modules/ecs_cluster"
+  project     = var.project
+  environment = var.environment
+}
+
+module "ecs_api" {
+  source                      = "../../modules/ecs_service"
   project                     = var.project
   environment                 = var.environment
   region                      = var.region
-  ecr_repository_url          = module.ecr.ecr_repository_url
+  service_name_suffix         = "api"
+  cluster_id                  = module.ecs_cluster.cluster_id
+  ecr_repository_url          = module.ecr.api_repository_url
   ecs_task_execution_role_arn = module.iam.ecs_task_execution_role_arn
   ecs_task_iam_role_arn       = module.iam.ecs_task_iam_role_arn
-  target_group_arn            = module.load_balancer.blue_target_group_arn
+  target_group_arn            = module.load_balancer.api_blue_target_group_arn
   security_group_ids          = [module.security_group.ecs_tasks_security_group_id]
   private_subnet_ids          = module.vpc.private_subnet_ids
-  desired_count               = 2 # High Availability for Prod
-  cpu                         = 512
-  memory                      = 1024
+  desired_count               = 1
+  cpu                         = 256
+  memory                      = 512
+  container_port              = 8000
+}
+
+module "ecs_frontend" {
+  source                      = "../../modules/ecs_service"
+  project                     = var.project
+  environment                 = var.environment
+  region                      = var.region
+  service_name_suffix         = "front"
+  cluster_id                  = module.ecs_cluster.cluster_id
+  ecr_repository_url          = module.ecr.frontend_repository_url
+  ecs_task_execution_role_arn = module.iam.ecs_task_execution_role_arn
+  ecs_task_iam_role_arn       = module.iam.ecs_task_iam_role_arn
+  target_group_arn            = module.load_balancer.frontend_blue_target_group_arn
+  security_group_ids          = [module.security_group.ecs_tasks_security_group_id]
+  private_subnet_ids          = module.vpc.private_subnet_ids
+  desired_count               = 1
+  cpu                         = 256
+  memory                      = 512
+  container_port              = 80
 }
 
 module "lambda" {
@@ -107,15 +135,30 @@ module "s3" {
   lambda_function_arn = module.lambda.function_arn
 }
 
-module "code_deploy" {
+module "code_deploy_api" {
   source                       = "../../modules/code_deploy"
   project                      = var.project
   environment                  = var.environment
   region                       = var.region
+  app_name_suffix              = "api"
   codedeploy_service_role_arn  = module.iam.codedeploy_service_role_arn
-  cluster_name                 = module.ecs.cluster_name
-  service_name                 = module.ecs.service_name
+  cluster_name                 = module.ecs_cluster.cluster_name
+  service_name                 = module.ecs_api.service_name
   alb_listener_arn             = module.load_balancer.alb_listener_arn
-  blue_target_group_name       = module.load_balancer.blue_target_group_name
-  green_target_group_name      = module.load_balancer.green_target_group_name
+  blue_target_group_name       = module.load_balancer.api_blue_target_group_name
+  green_target_group_name      = module.load_balancer.api_green_target_group_name
+}
+
+module "code_deploy_frontend" {
+  source                       = "../../modules/code_deploy"
+  project                      = var.project
+  environment                  = var.environment
+  region                       = var.region
+  app_name_suffix              = "front"
+  codedeploy_service_role_arn  = module.iam.codedeploy_service_role_arn
+  cluster_name                 = module.ecs_cluster.cluster_name
+  service_name                 = module.ecs_frontend.service_name
+  alb_listener_arn             = module.load_balancer.alb_listener_arn
+  blue_target_group_name       = module.load_balancer.frontend_blue_target_group_name
+  green_target_group_name      = module.load_balancer.frontend_green_target_group_name
 }

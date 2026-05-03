@@ -1,0 +1,67 @@
+name: Deploy Frontend to ECS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - 'infrastructure/**'
+      - '.github/workflows/deploy-frontend.yml'
+
+env:
+  AWS_REGION: us-east-1                   
+  ECS_CLUSTER: alfalah-ai-prod-cluster                 
+
+jobs:
+  deploy:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-deploy-role
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, tag, and push Frontend image to Amazon ECR
+      id: build-front-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: alfalah-ai-prod-frontend
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f frontend/Dockerfile ./frontend
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+    - name: Fill in the new image ID in the Frontend task definition
+      id: task-def-front
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: infrastructure/codedeploy/taskdef-frontend.json
+        container-name: front
+        image: ${{ steps.build-front-image.outputs.image }}
+
+    - name: Deploy Frontend via CodeDeploy
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: ${{ steps.task-def-front.outputs.task-definition }}
+        service: alfalah-ai-prod-front-svc
+        cluster: ${{ env.ECS_CLUSTER }}
+        wait-for-service-stability: true
+        codedeploy-appspec: infrastructure/codedeploy/appspec-frontend.yaml
+        codedeploy-application: alfalah-ai-prod-front-app
+        codedeploy-deployment-group: alfalah-ai-prod-front-dg

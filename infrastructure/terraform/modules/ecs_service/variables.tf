@@ -10,6 +10,14 @@ variable "region" {
   type = string
 }
 
+variable "service_name_suffix" {
+  type = string
+}
+
+variable "cluster_id" {
+  type = string
+}
+
 variable "ecs_task_execution_role_arn" {
   type = string
 }

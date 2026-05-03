@@ -1,25 +1,25 @@
-name: Deploy to Amazon ECS
+name: Deploy Backend API to ECS
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'backend/**'
+      - 'infrastructure/**'
+      - '.github/workflows/deploy-api.yml'
 
 env:
   AWS_REGION: us-east-1                   
-  ECR_REPOSITORY: alfalah-ai-prod-api           
-  ECS_SERVICE: alfalah-ai-prod-api-service                 
   ECS_CLUSTER: alfalah-ai-prod-cluster                 
-  ECS_TASK_DEFINITION: infrastructure/codedeploy/taskdef.json 
-  CONTAINER_NAME: api           
 
 jobs:
   deploy:
-    name: Deploy
+    name: Deploy API
     runs-on: ubuntu-latest
     environment: production
     permissions:
-      id-token: write # Required for OIDC
+      id-token: write
       contents: read
 
     steps:
@@ -36,32 +36,32 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Build, tag, and push image to Amazon ECR
-      id: build-image
+    - name: Build, tag, and push API image to Amazon ECR
+      id: build-api-image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: alfalah-ai-prod-api
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Build a docker container and push it to ECR so that it can be deployed to ECS.
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f backend/Dockerfile .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-    - name: Fill in the new image ID in the Amazon ECS task definition
-      id: task-def
+    - name: Fill in the new image ID in the API task definition
+      id: task-def-api
       uses: aws-actions/amazon-ecs-render-task-definition@v1
       with:
-        task-definition: ${{ env.ECS_TASK_DEFINITION }}
-        container-name: ${{ env.CONTAINER_NAME }}
-        image: ${{ steps.build-image.outputs.image }}
+        task-definition: infrastructure/codedeploy/taskdef-api.json
+        container-name: api
+        image: ${{ steps.build-api-image.outputs.image }}
 
-    - name: Deploy Amazon ECS task definition via CodeDeploy
+    - name: Deploy API via CodeDeploy
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
       with:
-        task-definition: ${{ steps.task-def.outputs.task-definition }}
-        service: ${{ env.ECS_SERVICE }}
+        task-definition: ${{ steps.task-def-api.outputs.task-definition }}
+        service: alfalah-ai-prod-api-svc
         cluster: ${{ env.ECS_CLUSTER }}
         wait-for-service-stability: true
-        codedeploy-appspec: infrastructure/codedeploy/appspec.yaml
-        codedeploy-application: alfalah-ai-prod-app
-        codedeploy-deployment-group: alfalah-ai-prod-dg
+        codedeploy-appspec: infrastructure/codedeploy/appspec-api.yaml
+        codedeploy-application: alfalah-ai-prod-api-app
+        codedeploy-deployment-group: alfalah-ai-prod-api-dg

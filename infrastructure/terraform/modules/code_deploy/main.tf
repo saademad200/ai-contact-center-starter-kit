@@ -1,11 +1,11 @@
 resource "aws_codedeploy_app" "main" {
   compute_platform = "ECS"
-  name             = "${var.project}-${var.environment}-app"
+  name             = "${var.project}-${var.environment}-${var.app_name_suffix}-app"
 }
 
 resource "aws_codedeploy_deployment_group" "main" {
   app_name               = aws_codedeploy_app.main.name
-  deployment_group_name  = "${var.project}-${var.environment}-dg"
+  deployment_group_name  = "${var.project}-${var.environment}-${var.app_name_suffix}-dg"
   deployment_config_name = "CodeDeployDefault.ECSAllAtOnce"
   service_role_arn       = var.codedeploy_service_role_arn
 

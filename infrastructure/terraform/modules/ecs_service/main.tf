@@ -1,19 +1,5 @@
-resource "aws_ecs_cluster" "main" {
-  name = "${var.project}-${var.environment}-cluster"
-
-  setting {
-    name  = "containerInsights"
-    value = "enabled"
-  }
-
-  tags = {
-    Name        = "${var.project}-${var.environment}-cluster"
-    Environment = var.environment
-  }
-}
-
 resource "aws_cloudwatch_log_group" "ecs" {
-  name              = "/ecs/${var.project}-${var.environment}-api"
+  name              = "/ecs/${var.project}-${var.environment}-${var.service_name_suffix}"
   retention_in_days = 30
 
   tags = {
@@ -22,8 +8,8 @@ resource "aws_cloudwatch_log_group" "ecs" {
   }
 }
 
-resource "aws_ecs_task_definition" "api" {
-  family                   = "${var.project}-${var.environment}-api"
+resource "aws_ecs_task_definition" "main" {
+  family                   = "${var.project}-${var.environment}-${var.service_name_suffix}"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = var.cpu
@@ -33,7 +19,7 @@ resource "aws_ecs_task_definition" "api" {
 
   container_definitions = jsonencode([
     {
-      name      = "api"
+      name      = var.service_name_suffix
       image     = "${var.ecr_repository_url}:latest"
       essential = true
       portMappings = [
@@ -53,17 +39,15 @@ resource "aws_ecs_task_definition" "api" {
       }
       environment = [
         { name = "ENVIRONMENT", value = var.environment }
-        # Secrets like OPENAI_API_KEY should ideally be pulled from Secrets Manager,
-        # but for this setup we will inject them via task definition environment during CI/CD.
       ]
     }
   ])
 }
 
 resource "aws_ecs_service" "main" {
-  name            = "${var.project}-${var.environment}-api-service"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.api.arn
+  name            = "${var.project}-${var.environment}-${var.service_name_suffix}-svc"
+  cluster         = var.cluster_id
+  task_definition = aws_ecs_task_definition.main.arn
   desired_count   = var.desired_count
   launch_type     = "FARGATE"
 
@@ -75,7 +59,7 @@ resource "aws_ecs_service" "main" {
 
   load_balancer {
     target_group_arn = var.target_group_arn
-    container_name   = "api"
+    container_name   = var.service_name_suffix
     container_port   = var.container_port
   }
 
@@ -84,7 +68,7 @@ resource "aws_ecs_service" "main" {
   }
 
   tags = {
-    Name        = "${var.project}-${var.environment}-api-service"
+    Name        = "${var.project}-${var.environment}-${var.service_name_suffix}-svc"
     Environment = var.environment
   }
 }
