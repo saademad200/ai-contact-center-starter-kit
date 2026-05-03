@@ -1,32 +1,22 @@
 [
   {
-    "query": "What is the current NAV of Meezan Islamic Fund?",
+    "input": "What is the NAV for the Alfalah Money Market Fund today?",
     "expected_tool": "get_fund_nav",
-    "required_args": ["Meezan Islamic Fund"]
+    "expected_topic": "money market fund nav"
   },
   {
-    "query": "How has the Meezan Gold Fund performed over the last year?",
-    "expected_tool": "get_fund_performance",
-    "required_args": ["Meezan Gold Fund", "1Y"]
-  },
-  {
-    "query": "I am thinking of putting money in MCF or MIIF, which one is better?",
+    "input": "Can you compare the YTD performance of the Stock Fund and the Islamic Income Fund?",
     "expected_tool": "compare_funds",
-    "required_args": ["Meezan Cash Fund", "Meezan Islamic Income Fund"]
+    "expected_topic": "performance comparison"
   },
   {
-    "query": "I am 25 years old and want to invest for 10 years and can take high risk.",
-    "expected_tool": "assess_risk_profile",
-    "required_args": []
-  },
-  {
-    "query": "What are the tax benefits of investing in mutual funds in Pakistan?",
+    "input": "What are the tax implications if I withdraw from my pension fund early?",
     "expected_tool": "search_knowledge_base",
-    "required_args": ["tax benefits mutual funds Pakistan"]
+    "expected_topic": "tax implications pension early withdrawal"
   },
   {
-    "query": "I lost my account password, please help me reset it.",
+    "input": "I am having trouble with my account login. I need human help.",
     "expected_tool": "escalate_to_human",
-    "required_args": []
+    "expected_topic": "account login issue escalation"
   }
 ]
