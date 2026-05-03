@@ -61,4 +61,7 @@ The agent uses **OpenAI tool calling** to invoke the right function based on cus
 
 ## Current State
 
-🏗️ **Scaffolded** — Infrastructure, scripts, and core architecture defined. Moving into FastAPI implementation.
+✅ **Complete** — All components (Infrastructure, Agent, API, Widget, Admin) are fully implemented.
+- **Frontend** (`frontend/`) contains the independent Nginx-hosted landing page and vanilla JS chat widget, built as a standalone ECS service.
+- **Backend** (`backend/`) contains the FastAPI server which handles the API, Agent WebSockets, and **server-side renders the Admin Panel** using Jinja2 templates at the `/admin` path. This is deployed as its own ECS service.
+- **Infrastructure** runs via GitFlow-aware GitHub Actions using Terraform and AWS CodeDeploy (Blue/Green).
