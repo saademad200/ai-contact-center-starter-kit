@@ -3,65 +3,87 @@ name: Deploy Backend API to ECS
 on:
   push:
     branches:
-      - main
+      - main          # production — protected, merge-only
+      - release/rc    # staging / release candidate — protected, merge-only
     paths:
       - 'backend/**'
-      - 'infrastructure/**'
+      - 'infrastructure/codedeploy/appspec-api.yaml'
+      - 'infrastructure/codedeploy/taskdef-api.json'
       - '.github/workflows/deploy-api.yml'
 
 env:
-  AWS_REGION: us-east-1                   
-  ECS_CLUSTER: alfalah-ai-prod-cluster                 
+  AWS_REGION: us-east-1
 
 jobs:
   deploy:
-    name: Deploy API
+    name: Deploy API → ${{ github.ref_name == 'main' && 'Production' || 'Staging' }}
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     permissions:
       id-token: write
       contents: read
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-deploy-role
-        aws-region: ${{ env.AWS_REGION }}
+      - name: Resolve deployment target
+        id: target
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "env_name=prod"                                    >> $GITHUB_OUTPUT
+            echo "ecs_cluster=alfalah-ai-prod-cluster"             >> $GITHUB_OUTPUT
+            echo "ecs_service=alfalah-ai-prod-api-svc"             >> $GITHUB_OUTPUT
+            echo "ecr_repo=alfalah-ai-prod-api"                    >> $GITHUB_OUTPUT
+            echo "codedeploy_app=alfalah-ai-prod-api-app"          >> $GITHUB_OUTPUT
+            echo "codedeploy_dg=alfalah-ai-prod-api-dg"            >> $GITHUB_OUTPUT
+          else
+            echo "env_name=staging"                                 >> $GITHUB_OUTPUT
+            echo "ecs_cluster=alfalah-ai-staging-cluster"          >> $GITHUB_OUTPUT
+            echo "ecs_service=alfalah-ai-staging-api-svc"          >> $GITHUB_OUTPUT
+            echo "ecr_repo=alfalah-ai-staging-api"                 >> $GITHUB_OUTPUT
+            echo "codedeploy_app=alfalah-ai-staging-api-app"       >> $GITHUB_OUTPUT
+            echo "codedeploy_dg=alfalah-ai-staging-api-dg"         >> $GITHUB_OUTPUT
+          fi
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-deploy-role
+          aws-region: ${{ env.AWS_REGION }}
 
-    - name: Build, tag, and push API image to Amazon ECR
-      id: build-api-image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: alfalah-ai-prod-api
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f backend/Dockerfile .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Fill in the new image ID in the API task definition
-      id: task-def-api
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: infrastructure/codedeploy/taskdef-api.json
-        container-name: api
-        image: ${{ steps.build-api-image.outputs.image }}
+      - name: Build, tag, and push API image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ steps.target.outputs.ecr_repo }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f backend/Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-    - name: Deploy API via CodeDeploy
-      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-      with:
-        task-definition: ${{ steps.task-def-api.outputs.task-definition }}
-        service: alfalah-ai-prod-api-svc
-        cluster: ${{ env.ECS_CLUSTER }}
-        wait-for-service-stability: true
-        codedeploy-appspec: infrastructure/codedeploy/appspec-api.yaml
-        codedeploy-application: alfalah-ai-prod-api-app
-        codedeploy-deployment-group: alfalah-ai-prod-api-dg
+      - name: Render task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: infrastructure/codedeploy/taskdef-api.json
+          container-name: api
+          image: ${{ steps.build-image.outputs.image }}
+          environment-variables: |
+            ENVIRONMENT=${{ steps.target.outputs.env_name }}
+
+      - name: Deploy via CodeDeploy (Blue/Green)
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ steps.target.outputs.ecs_service }}
+          cluster: ${{ steps.target.outputs.ecs_cluster }}
+          wait-for-service-stability: true
+          codedeploy-appspec: infrastructure/codedeploy/appspec-api.yaml
+          codedeploy-application: ${{ steps.target.outputs.codedeploy_app }}
+          codedeploy-deployment-group: ${{ steps.target.outputs.codedeploy_dg }}
