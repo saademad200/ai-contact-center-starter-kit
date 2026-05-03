@@ -11,9 +11,17 @@ from typing import List, Dict, Any, Optional
 from langfuse.openai import AsyncOpenAI
 from app.agent.tool_registry import OPENAI_TOOLS, execute_tool
 
-client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+_client = None
+
+
+def _get_client():
+    global _client
+    if _client is None:
+        _client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    return _client
 
 _dynamodb = None
+
 
 def _get_dynamo():
     global _dynamodb
@@ -80,7 +88,7 @@ async def chat_with_agent(
 
     try:
         # First LLM call — may include tool call requests
-        response = await client.chat.completions.create(
+        response = await _get_client().chat.completions.create(
             model=model,
             messages=messages,
             tools=OPENAI_TOOLS,
@@ -110,7 +118,7 @@ async def chat_with_agent(
                 )
 
             # Second call — produce final answer using tool results
-            final_response = await client.chat.completions.create(
+            final_response = await _get_client().chat.completions.create(
                 model=model,
                 messages=messages,
                 temperature=0.3,

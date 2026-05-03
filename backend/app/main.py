@@ -1,13 +1,60 @@
 """
 FastAPI Application Factory
 ============================
-See PROJECT_PLAN.md §10 for full specification.
-
-Responsibilities:
-- Create FastAPI app with lifespan events
-- Mount all routers under /api/v1
-- Serve admin panel at /admin
-- Serve static files (widget) at /static
-- Configure CORS for chat widget origins
-- Health check at GET /health
+Mounts:
+  - /api/v1          → REST API routers
+  - /ws              → WebSocket chat
+  - /admin           → Jinja2 admin panel
+  - /health          → ALB health check
 """
+import logging
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.core.config import settings
+from app.routers import auth, chat_ws, conversations, documents, ratings, tickets, llmops
+
+logging.basicConfig(level=settings.log_level.upper())
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Starting Alfalah GPT API (env=%s)", settings.environment)
+    yield
+    logger.info("Shutting down Alfalah GPT API")
+
+
+app = FastAPI(
+    title="Alfalah GPT API",
+    description="AI-powered customer support for Alfalah Investments",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# ── CORS ───────────────────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── Routers ────────────────────────────────────────────────────────────────────
+API_PREFIX = "/api/v1"
+app.include_router(auth.router, prefix=API_PREFIX)
+app.include_router(conversations.router, prefix=API_PREFIX)
+app.include_router(documents.router, prefix=API_PREFIX)
+app.include_router(ratings.router, prefix=API_PREFIX)
+app.include_router(tickets.router, prefix=API_PREFIX)
+app.include_router(llmops.router, prefix=API_PREFIX)
+app.include_router(chat_ws.router)  # mounts at /ws/chat/{conversation_id}
+
+
+# ── Health Check ───────────────────────────────────────────────────────────────
+@app.get("/health", tags=["health"])
+async def health():
+    return {"status": "ok", "environment": settings.environment}

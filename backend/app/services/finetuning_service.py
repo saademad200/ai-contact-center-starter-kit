@@ -11,7 +11,14 @@ from typing import Optional
 
 from openai import AsyncOpenAI
 
-client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+_client = None
+
+
+def _get_client() -> AsyncOpenAI:
+    global _client
+    if _client is None:
+        _client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    return _client
 
 S3_BUCKET = os.environ.get("S3_BUCKET_NAME", "alfalah-ai-data-staging")
 BASE_MODEL = "gpt-4o-mini-2024-07-18"   # cheapest fine-tuneable model
@@ -32,7 +39,7 @@ async def upload_training_file(s3_key: str) -> str:
         tmp_path = tmp.name
 
     with open(tmp_path, "rb") as f:
-        response = await client.files.create(file=f, purpose="fine-tune")
+        response = await _get_client().files.create(file=f, purpose="fine-tune")
 
     return response.id
 
@@ -48,7 +55,7 @@ async def trigger_fine_tuning_job(s3_key: str = "cleaned/training.jsonl") -> dic
     file_id = await upload_training_file(s3_key)
     print(f"[FineTuning] OpenAI file uploaded: {file_id}")
 
-    job = await client.fine_tuning.jobs.create(
+    job = await _get_client().fine_tuning.jobs.create(
         training_file=file_id,
         model=BASE_MODEL,
         hyperparameters={"n_epochs": "auto"},
@@ -66,7 +73,7 @@ async def trigger_fine_tuning_job(s3_key: str = "cleaned/training.jsonl") -> dic
 
 async def check_fine_tuning_status(job_id: str) -> dict:
     """Returns the current status of a fine-tuning job."""
-    job = await client.fine_tuning.jobs.retrieve(job_id)
+    job = await _get_client().fine_tuning.jobs.retrieve(job_id)
     return {
         "job_id": job.id,
         "status": job.status,
@@ -74,3 +81,16 @@ async def check_fine_tuning_status(job_id: str) -> dict:
         "finished_at": job.finished_at,
         "trained_tokens": job.trained_tokens,
     }
+
+
+# ── Public aliases expected by llmops router ──────────────────────────────────
+
+async def start_fine_tuning_job(s3_key: str, suffix: str = "") -> str:
+    """Starts a fine-tuning job and returns the job_id."""
+    result = await trigger_fine_tuning_job(s3_key=s3_key)
+    return result["job_id"]
+
+
+async def get_job_status(job_id: str) -> dict:
+    """Alias for check_fine_tuning_status."""
+    return await check_fine_tuning_status(job_id)
