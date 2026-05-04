@@ -4,11 +4,13 @@ Main loop: receive message → call OpenAI with tools → handle tool calls → 
 Model and system prompt are fetched dynamically from DynamoDB registries.
 OpenAI client is wrapped by Langfuse for automatic tracing.
 """
-import os
-import boto3
-from typing import List, Dict, Any, Optional
 
+import os
+from typing import Any
+
+import boto3
 from langfuse.openai import AsyncOpenAI
+
 from app.agent.tool_registry import OPENAI_TOOLS, execute_tool
 
 _client = None
@@ -19,6 +21,7 @@ def _get_client():
     if _client is None:
         _client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
     return _client
+
 
 _dynamodb = None
 
@@ -37,7 +40,7 @@ def _get_dynamo():
 async def get_active_model() -> str:
     """Fetches the currently active fine-tuned model ID from DynamoDB Model Registry."""
     try:
-        table = _get_dynamo().Table(f"alfalah-model-registry")
+        table = _get_dynamo().Table("alfalah-model-registry")
         response = table.get_item(Key={"pk": "ACTIVE_MODEL", "sk": "ACTIVE_MODEL"})
         item = response.get("Item")
         if item and item.get("openai_model_id"):
@@ -50,7 +53,7 @@ async def get_active_model() -> str:
 async def get_system_prompt() -> str:
     """Fetches the active system prompt version from DynamoDB Prompt Registry."""
     try:
-        table = _get_dynamo().Table(f"alfalah-prompt-registry")
+        table = _get_dynamo().Table("alfalah-prompt-registry")
         response = table.get_item(Key={"pk": "ACTIVE_PROMPT", "sk": "ACTIVE_PROMPT"})
         item = response.get("Item")
         if item and item.get("content"):
@@ -68,9 +71,9 @@ async def get_system_prompt() -> str:
 
 
 async def chat_with_agent(
-    conversation_history: List[Dict[str, str]],
+    conversation_history: list[dict[str, str]],
     user_message: str,
-    conversation_id: Optional[str] = None,
+    conversation_id: str | None = None,
 ) -> str:
     """
     Main agent loop.
@@ -82,7 +85,7 @@ async def chat_with_agent(
     system_prompt = await get_system_prompt()
     model = await get_active_model()
 
-    messages: List[Dict[str, Any]] = [{"role": "system", "content": system_prompt}]
+    messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
     messages.extend(conversation_history)
     messages.append({"role": "user", "content": user_message})
 

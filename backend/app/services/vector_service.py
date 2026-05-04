@@ -2,13 +2,15 @@
 Vector Service — ChromaDB wrapper
 Handles upsert, query, and delete of document chunks in the RAG knowledge base.
 """
-from typing import List, Dict, Any, Optional
+
+from typing import Any
+
 import chromadb
 from chromadb.config import Settings
 
-from app.services.embedding_service import generate_embeddings_batch, generate_embedding
+from app.services.embedding_service import generate_embedding, generate_embeddings_batch
 
-_client: Optional[chromadb.Client] = None
+_client: chromadb.Client | None = None
 _collection = None
 
 COLLECTION_NAME = "alfalah_kb"
@@ -28,9 +30,9 @@ def get_collection():
 
 
 async def upsert_documents(
-    ids: List[str],
-    texts: List[str],
-    metadatas: List[Dict[str, Any]],
+    ids: list[str],
+    texts: list[str],
+    metadatas: list[dict[str, Any]],
 ) -> None:
     """
     Embeds and upserts a batch of text chunks into ChromaDB.
@@ -51,8 +53,8 @@ async def upsert_documents(
 async def search_documents(
     query: str,
     top_k: int = 5,
-    where: Optional[Dict[str, Any]] = None,
-) -> List[Dict[str, Any]]:
+    where: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     """
     Semantic search across the knowledge base.
     Returns a list of {text, metadata, distance} dicts.
@@ -61,7 +63,7 @@ async def search_documents(
     collection = get_collection()
     query_embedding = await generate_embedding(query)
 
-    kwargs: Dict[str, Any] = dict(
+    kwargs: dict[str, Any] = dict(
         query_embeddings=[query_embedding],
         n_results=top_k,
         include=["documents", "metadatas", "distances"],
@@ -76,12 +78,13 @@ async def search_documents(
         results["documents"][0],
         results["metadatas"][0],
         results["distances"][0],
+        strict=False,
     ):
         output.append({"text": doc, "metadata": meta, "distance": dist})
     return output
 
 
-async def delete_documents(ids: List[str]) -> None:
+async def delete_documents(ids: list[str]) -> None:
     """Deletes specific chunks by their IDs."""
     collection = get_collection()
     collection.delete(ids=ids)

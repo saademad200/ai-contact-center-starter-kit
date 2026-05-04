@@ -3,6 +3,7 @@ Tickets Router (admin) — escalations / support tickets
 GET  /api/v1/tickets      — list all escalation tickets
 PUT  /api/v1/tickets/{id} — update ticket status (open, in_progress, resolved)
 """
+
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException

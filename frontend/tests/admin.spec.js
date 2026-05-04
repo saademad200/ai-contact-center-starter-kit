@@ -4,7 +4,7 @@ test.describe('Admin SPA E2E', () => {
   test('Login redirects to dashboard and saves JWT', async ({ page }) => {
     // 1. Go to login page
     await page.goto('/admin/login');
-    
+
     // 2. We mock the API endpoint since the backend isn't running in this frontend-only test phase
     await page.route('/api/v1/auth/token', async route => {
       const json = { access_token: 'fake-jwt-token', token_type: 'bearer' };

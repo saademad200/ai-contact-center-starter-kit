@@ -3,6 +3,7 @@ Application Settings (pydantic-settings)
 ==========================================
 Loads from env vars / .env file. All settings documented with defaults.
 """
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

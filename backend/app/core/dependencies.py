@@ -5,6 +5,7 @@ Provides:
 - get_current_user(token) → user dict (from JWT in Authorization header)
 - require_admin(user)       → raises 403 if role != "admin"
 """
+
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -21,5 +22,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> dic
 
 async def require_admin(user: Annotated[dict, Depends(get_current_user)]) -> dict:
     if user.get("role") != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required"
+        )
     return user

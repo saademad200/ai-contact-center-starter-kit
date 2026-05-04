@@ -9,6 +9,7 @@ This is the LOCAL version of what the Lambda does automatically in prod.
 Usage:
     python knowledge_base/scripts/prepare_ft_data.py
 """
+
 import json
 import re
 from pathlib import Path

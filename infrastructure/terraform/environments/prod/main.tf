@@ -134,4 +134,3 @@ module "s3" {
   bucket_name         = var.s3_bucket_name
   lambda_function_arn = module.lambda.function_arn
 }
-

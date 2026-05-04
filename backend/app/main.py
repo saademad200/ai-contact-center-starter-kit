@@ -7,15 +7,24 @@ Mounts:
   - /admin           → Jinja2 admin panel
   - /health          → ALB health check
 """
+
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import auth, chat_ws, conversations, documents, ratings, tickets, llmops, admin
+from app.routers import (
+    admin,
+    auth,
+    chat_ws,
+    conversations,
+    documents,
+    llmops,
+    ratings,
+    tickets,
+)
 
 logging.basicConfig(level=settings.log_level.upper())
 logger = logging.getLogger(__name__)

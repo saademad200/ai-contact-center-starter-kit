@@ -12,19 +12,20 @@ Flow:
      c. Save assistant reply to DynamoDB.
      d. Send reply back over WebSocket.
 """
+
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from app.core.dynamo import get_table
 from app.agent.orchestrator import chat_with_agent
+from app.core.dynamo import get_table
 
 router = APIRouter(tags=["chat"])
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _save_message(conversation_id: str, role: str, content: str) -> dict:

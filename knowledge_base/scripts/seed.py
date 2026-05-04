@@ -11,6 +11,7 @@ Usage:
     pip install httpx beautifulsoup4
     python knowledge_base/scripts/seed.py
 """
+
 import asyncio
 from pathlib import Path
 
@@ -100,7 +101,9 @@ async def download_pdf(client: httpx.AsyncClient, url: str, dest: Path) -> bool:
         return False
 
 
-async def scrape_page(client: httpx.AsyncClient, url: str, dest: Path, description: str) -> None:
+async def scrape_page(
+    client: httpx.AsyncClient, url: str, dest: Path, description: str
+) -> None:
     if dest.exists():
         print(f"  [SKIP] {dest.name}")
         return
@@ -121,7 +124,9 @@ async def scrape_page(client: httpx.AsyncClient, url: str, dest: Path, descripti
             or soup.find("div", id="content")
             or soup.body
         )
-        text = content.get_text(separator="\n", strip=True) if content else soup.get_text()
+        text = (
+            content.get_text(separator="\n", strip=True) if content else soup.get_text()
+        )
 
         dest.write_text(text, encoding="utf-8")
         print(f"  [OK]   {dest.name} ({len(text):,} chars)")
@@ -137,7 +142,9 @@ async def main() -> None:
     # ── Step 1: RAG — Download Offering Document PDFs ────────────
     rag_dir = DOCS_DIR / "offering_documents"
     rag_dir.mkdir(parents=True, exist_ok=True)
-    print(f"\n[STEP 1] Downloading {len(RAG_OFFERING_DOCS)} Offering Documents for RAG...")
+    print(
+        f"\n[STEP 1] Downloading {len(RAG_OFFERING_DOCS)} Offering Documents for RAG..."
+    )
 
     async with httpx.AsyncClient() as client:
         for doc in RAG_OFFERING_DOCS:
@@ -146,10 +153,14 @@ async def main() -> None:
         # ── Step 2: Fine-Tuning — Scrape FAQ & policy pages ──────
         ft_dir = DOCS_DIR / "faqs"
         ft_dir.mkdir(parents=True, exist_ok=True)
-        print(f"\n[STEP 2] Scraping {len(SCRAPE_PAGES)} pages for Fine-Tuning seed data...")
+        print(
+            f"\n[STEP 2] Scraping {len(SCRAPE_PAGES)} pages for Fine-Tuning seed data..."
+        )
 
         for page in SCRAPE_PAGES:
-            await scrape_page(client, page["url"], ft_dir / page["filename"], page["description"])
+            await scrape_page(
+                client, page["url"], ft_dir / page["filename"], page["description"]
+            )
 
     print("\n" + "=" * 62)
     print("  Done! Next steps:")

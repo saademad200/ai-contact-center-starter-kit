@@ -8,22 +8,23 @@ POST /api/v1/documents/upload
 GET  /api/v1/documents              — list uploaded documents
 DELETE /api/v1/documents/{doc_id}   — remove from ChromaDB or mark deleted in DynamoDB
 """
+
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from app.core.dependencies import require_admin
 from app.core.dynamo import get_table
-from app.services.storage_service import upload_file
 from app.pipeline.ingestion import ingest_pdf
+from app.services.storage_service import upload_file
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 @router.post("/upload")
@@ -55,7 +56,9 @@ async def upload_document(
 
     if destination == "rag":
         if not file.filename.lower().endswith(".pdf"):
-            raise HTTPException(status_code=400, detail="RAG destination requires a PDF file")
+            raise HTTPException(
+                status_code=400, detail="RAG destination requires a PDF file"
+            )
 
         # Run ingestion pipeline: PDF → chunks → embeddings → ChromaDB
         chunks_count = await ingest_pdf(
@@ -68,7 +71,9 @@ async def upload_document(
 
     else:  # finetune
         s3_key = f"raw/{doc_id}/{file.filename}"
-        s3_uri = await upload_file(file_bytes, s3_key, file.content_type or "application/octet-stream")
+        s3_uri = await upload_file(
+            file_bytes, s3_key, file.content_type or "application/octet-stream"
+        )
         record["status"] = "uploaded_to_s3"
         record["s3_uri"] = s3_uri
 

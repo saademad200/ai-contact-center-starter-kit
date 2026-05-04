@@ -1,13 +1,13 @@
-import json
 import inspect
-from typing import Callable, Dict
+import json
+from collections.abc import Callable
 
 from app.agent.tools.get_fund_nav import get_fund_nav
 from app.agent.tools.get_fund_performance import get_fund_performance
 from app.agent.tools.search_kb import search_kb
 
 # ── Python function map ───────────────────────────────────────────────────────
-TOOL_FUNCTIONS: Dict[str, Callable] = {
+TOOL_FUNCTIONS: dict[str, Callable] = {
     "get_fund_nav": get_fund_nav,
     "get_fund_performance": get_fund_performance,
     "search_kb": search_kb,
@@ -25,12 +25,12 @@ OPENAI_TOOLS = [
                 "properties": {
                     "fund_name": {
                         "type": "string",
-                        "description": "The full name of the fund, e.g. 'Alfalah GHP Islamic Income Fund'."
+                        "description": "The full name of the fund, e.g. 'Alfalah GHP Islamic Income Fund'.",
                     }
                 },
                 "required": ["fund_name"],
             },
-        }
+        },
     },
     {
         "type": "function",
@@ -42,12 +42,12 @@ OPENAI_TOOLS = [
                 "properties": {
                     "fund_name": {
                         "type": "string",
-                        "description": "The full name of the fund, e.g. 'Alfalah GHP Islamic Income Fund'."
+                        "description": "The full name of the fund, e.g. 'Alfalah GHP Islamic Income Fund'.",
                     }
                 },
                 "required": ["fund_name"],
             },
-        }
+        },
     },
     {
         "type": "function",
@@ -59,12 +59,12 @@ OPENAI_TOOLS = [
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "The user's question or a search phrase to look up in the knowledge base."
+                        "description": "The user's question or a search phrase to look up in the knowledge base.",
                     }
                 },
                 "required": ["query"],
             },
-        }
+        },
     },
 ]
 

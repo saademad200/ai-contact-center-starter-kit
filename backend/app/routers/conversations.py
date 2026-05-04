@@ -5,10 +5,11 @@ GET  /api/v1/conversations          — list all conversations
 GET  /api/v1/conversations/{id}     — get conversation + messages
 DELETE /api/v1/conversations/{id}   — delete conversation
 """
+
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
 from boto3.dynamodb.conditions import Key
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.dependencies import require_admin
 from app.core.dynamo import get_table

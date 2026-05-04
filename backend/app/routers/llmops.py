@@ -12,8 +12,9 @@ POST   /api/v1/llmops/finetune           — trigger an OpenAI fine-tuning job
 
 GET    /api/v1/llmops/finetune/{job_id}  — check job status
 """
+
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,16 +22,17 @@ from pydantic import BaseModel
 
 from app.core.dependencies import require_admin
 from app.core.dynamo import get_table
-from app.services.finetuning_service import start_fine_tuning_job, get_job_status
+from app.services.finetuning_service import get_job_status, start_fine_tuning_job
 
 router = APIRouter(prefix="/llmops", tags=["llmops"])
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 # ── Prompt Registry ────────────────────────────────────────────────────────────
+
 
 class PromptCreate(BaseModel):
     label: str
@@ -72,17 +74,20 @@ async def activate_prompt(pk: str, _: Annotated[dict, Depends(require_admin)]):
         raise HTTPException(status_code=404, detail="Prompt not found")
 
     # Write the active pointer
-    table.put_item(Item={
-        "pk": "ACTIVE_PROMPT",
-        "sk": "ACTIVE_PROMPT",
-        "content": prompt["content"],
-        "source_pk": pk,
-        "updated_at": _now_iso(),
-    })
+    table.put_item(
+        Item={
+            "pk": "ACTIVE_PROMPT",
+            "sk": "ACTIVE_PROMPT",
+            "content": prompt["content"],
+            "source_pk": pk,
+            "updated_at": _now_iso(),
+        }
+    )
     return {"message": f"Prompt {pk} is now active"}
 
 
 # ── Model Registry / Fine-Tuning ───────────────────────────────────────────────
+
 
 class FinetuneRequest(BaseModel):
     s3_key: str  # Path to cleaned JSONL in S3, e.g. "cleaned/my_data.jsonl"
@@ -116,7 +121,9 @@ async def trigger_finetune(
 
 
 @router.get("/finetune/{job_id}")
-async def check_finetune_status(job_id: str, _: Annotated[dict, Depends(require_admin)]):
+async def check_finetune_status(
+    job_id: str, _: Annotated[dict, Depends(require_admin)]
+):
     """Checks the real-time status of a fine-tuning job from OpenAI."""
     status = await get_job_status(job_id)
 
@@ -149,11 +156,13 @@ async def activate_model(job_id: str, _: Annotated[dict, Depends(require_admin)]
     if not model or not model.get("openai_model_id"):
         raise HTTPException(status_code=404, detail="Model not found or not ready")
 
-    table.put_item(Item={
-        "pk": "ACTIVE_MODEL",
-        "sk": "ACTIVE_MODEL",
-        "openai_model_id": model["openai_model_id"],
-        "source_job_id": job_id,
-        "updated_at": _now_iso(),
-    })
+    table.put_item(
+        Item={
+            "pk": "ACTIVE_MODEL",
+            "sk": "ACTIVE_MODEL",
+            "openai_model_id": model["openai_model_id"],
+            "source_job_id": job_id,
+            "updated_at": _now_iso(),
+        }
+    )
     return {"message": f"Model {model['openai_model_id']} is now active"}

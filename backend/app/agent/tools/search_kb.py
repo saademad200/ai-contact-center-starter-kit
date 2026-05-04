@@ -1,8 +1,7 @@
-from typing import Optional
 from app.services.vector_service import search_documents
 
 
-async def search_kb(query: str, fund_name: Optional[str] = None) -> str:
+async def search_kb(query: str, fund_name: str | None = None) -> str:
     """
     Queries the RAG ChromaDB knowledge base to answer policy or document-based questions.
     Optionally filter by fund name to get more precise results.

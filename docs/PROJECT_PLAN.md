@@ -49,7 +49,7 @@
 
 We split data handling into three distinct paths to optimize LLM performance and reduce costs.
 
-1. **Fine-Tuning (Tone & General Knowledge):** 
+1. **Fine-Tuning (Tone & General Knowledge):**
    - *Data:* FAQs, customer service transcripts, standard policies, conversational tone.
    - *Pipeline:* Admin uploads text/docx to S3 `raw/` -> Lambda strips T&Cs/formats -> saves to S3 `cleaned.jsonl` -> Admin manually triggers OpenAI fine-tuning job.
 2. **RAG (Complex/Long Documents):**
@@ -119,7 +119,7 @@ The agent uses OpenAI Tool Calling to invoke functions based on customer intent.
 A Jinja2-rendered server-side UI protected by JWT authentication.
 
 - **/admin/dashboard:** Overview stats (Active conversations, Accuracy rate from ratings).
-- **/admin/llmops:** 
+- **/admin/llmops:**
   - View Prompt Registry (Create new version, set active).
   - View Model Registry (Check FT status, set active model).
   - "Trigger Fine-Tuning" button (takes the latest `cleaned.jsonl` from S3 and starts an OpenAI job).

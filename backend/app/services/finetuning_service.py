@@ -3,12 +3,12 @@ Fine-Tuning Service
 Uploads a cleaned JSONL file from S3 to OpenAI and triggers a fine-tuning job.
 Registers the resulting model in the DynamoDB Model Registry.
 """
-import os
-import boto3
-import tempfile
-from datetime import datetime, timezone
-from typing import Optional
 
+import os
+import tempfile
+from datetime import UTC, datetime
+
+import boto3
 from openai import AsyncOpenAI
 
 _client = None
@@ -20,8 +20,9 @@ def _get_client() -> AsyncOpenAI:
         _client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
     return _client
 
+
 S3_BUCKET = os.environ.get("S3_BUCKET_NAME", "alfalah-ai-data-staging")
-BASE_MODEL = "gpt-4o-mini-2024-07-18"   # cheapest fine-tuneable model
+BASE_MODEL = "gpt-4o-mini-2024-07-18"  # cheapest fine-tuneable model
 
 
 def _s3_client():
@@ -67,7 +68,7 @@ async def trigger_fine_tuning_job(s3_key: str = "cleaned/training.jsonl") -> dic
         "file_id": file_id,
         "base_model": BASE_MODEL,
         "status": job.status,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -84,6 +85,7 @@ async def check_fine_tuning_status(job_id: str) -> dict:
 
 
 # ── Public aliases expected by llmops router ──────────────────────────────────
+
 
 async def start_fine_tuning_job(s3_key: str, suffix: str = "") -> str:
     """Starts a fine-tuning job and returns the job_id."""

@@ -7,8 +7,11 @@ Table suffixes:
   conversations, messages, tickets, documents, users,
   response-ratings, prompt-registry, model-registry
 """
-import boto3
+
 from functools import lru_cache
+
+import boto3
+
 from app.core.config import settings
 
 

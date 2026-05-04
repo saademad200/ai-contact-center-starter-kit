@@ -1,4 +1,5 @@
 """Auth Router — POST /api/v1/auth/token (admin login)"""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,7 +7,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
 from app.core.dynamo import get_table
-from app.core.security import verify_password, create_access_token
+from app.core.security import create_access_token, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -23,7 +24,9 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     response = table.get_item(Key={"pk": form_data.username, "sk": "USER"})
     user = response.get("Item")
 
-    if not user or not verify_password(form_data.password, user.get("hashed_password", "")):
+    if not user or not verify_password(
+        form_data.password, user.get("hashed_password", "")
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
