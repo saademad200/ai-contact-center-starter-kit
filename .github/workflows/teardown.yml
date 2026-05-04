@@ -1,0 +1,58 @@
+name: Teardown Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to teardown (staging or prod)'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - prod
+      confirm:
+        description: 'Type "DESTROY" to confirm teardown'
+        required: true
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  destroy:
+    name: Destroy Infrastructure (${{ github.event.inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Verify Confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "DESTROY" ]; then
+            echo "Confirmation string 'DESTROY' was not provided. Aborting."
+            exit 1
+          fi
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-deploy-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.0
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment }}
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
+        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment }}

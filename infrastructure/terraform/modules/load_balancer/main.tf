@@ -36,28 +36,6 @@ resource "aws_lb_target_group" "api_blue" {
   }
 }
 
-resource "aws_lb_target_group" "api_green" {
-  name        = "${var.project}-${var.environment}-api-grn"
-  port        = 8000
-  protocol    = "HTTP"
-  vpc_id      = var.vpc_id
-  target_type = "ip"
-
-  health_check {
-    path                = "/health"
-    healthy_threshold   = 3
-    unhealthy_threshold = 3
-    timeout             = 5
-    interval            = 30
-    matcher             = "200-399"
-  }
-
-  tags = {
-    Name        = "${var.project}-${var.environment}-api-grn"
-    Environment = var.environment
-  }
-}
-
 # --- Frontend Target Groups ---
 resource "aws_lb_target_group" "frontend_blue" {
   name        = "${var.project}-${var.environment}-web-blu"
@@ -77,28 +55,6 @@ resource "aws_lb_target_group" "frontend_blue" {
 
   tags = {
     Name        = "${var.project}-${var.environment}-web-blu"
-    Environment = var.environment
-  }
-}
-
-resource "aws_lb_target_group" "frontend_green" {
-  name        = "${var.project}-${var.environment}-web-grn"
-  port        = 80
-  protocol    = "HTTP"
-  vpc_id      = var.vpc_id
-  target_type = "ip"
-
-  health_check {
-    path                = "/"
-    healthy_threshold   = 3
-    unhealthy_threshold = 3
-    timeout             = 5
-    interval            = 30
-    matcher             = "200-399"
-  }
-
-  tags = {
-    Name        = "${var.project}-${var.environment}-web-grn"
     Environment = var.environment
   }
 }

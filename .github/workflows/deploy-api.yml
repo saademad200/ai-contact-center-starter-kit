@@ -31,19 +31,15 @@ jobs:
         id: target
         run: |
           if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "env_name=prod"                                    >> $GITHUB_OUTPUT
+            echo "env_name=prod"                                   >> $GITHUB_OUTPUT
             echo "ecs_cluster=alfalah-ai-prod-cluster"             >> $GITHUB_OUTPUT
             echo "ecs_service=alfalah-ai-prod-api-svc"             >> $GITHUB_OUTPUT
             echo "ecr_repo=alfalah-ai-prod-api"                    >> $GITHUB_OUTPUT
-            echo "codedeploy_app=alfalah-ai-prod-api-app"          >> $GITHUB_OUTPUT
-            echo "codedeploy_dg=alfalah-ai-prod-api-dg"            >> $GITHUB_OUTPUT
           else
-            echo "env_name=staging"                                 >> $GITHUB_OUTPUT
+            echo "env_name=staging"                                >> $GITHUB_OUTPUT
             echo "ecs_cluster=alfalah-ai-staging-cluster"          >> $GITHUB_OUTPUT
             echo "ecs_service=alfalah-ai-staging-api-svc"          >> $GITHUB_OUTPUT
             echo "ecr_repo=alfalah-ai-staging-api"                 >> $GITHUB_OUTPUT
-            echo "codedeploy_app=alfalah-ai-staging-api-app"       >> $GITHUB_OUTPUT
-            echo "codedeploy_dg=alfalah-ai-staging-api-dg"         >> $GITHUB_OUTPUT
           fi
 
       - name: Configure AWS credentials
@@ -77,13 +73,11 @@ jobs:
           environment-variables: |
             ENVIRONMENT=${{ steps.target.outputs.env_name }}
 
-      - name: Deploy via CodeDeploy (Blue/Green)
+      - name: Deploy to Amazon ECS (Rolling Update)
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
           service: ${{ steps.target.outputs.ecs_service }}
           cluster: ${{ steps.target.outputs.ecs_cluster }}
           wait-for-service-stability: true
-          codedeploy-appspec: infrastructure/codedeploy/appspec-api.yaml
-          codedeploy-application: ${{ steps.target.outputs.codedeploy_app }}
-          codedeploy-deployment-group: ${{ steps.target.outputs.codedeploy_dg }}
+          force-new-deployment: true

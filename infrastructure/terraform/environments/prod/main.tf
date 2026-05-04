@@ -135,30 +135,3 @@ module "s3" {
   lambda_function_arn = module.lambda.function_arn
 }
 
-module "code_deploy_api" {
-  source                       = "../../modules/code_deploy"
-  project                      = var.project
-  environment                  = var.environment
-  region                       = var.region
-  app_name_suffix              = "api"
-  codedeploy_service_role_arn  = module.iam.codedeploy_service_role_arn
-  cluster_name                 = module.ecs_cluster.cluster_name
-  service_name                 = module.ecs_api.service_name
-  alb_listener_arn             = module.load_balancer.alb_listener_arn
-  blue_target_group_name       = module.load_balancer.api_blue_target_group_name
-  green_target_group_name      = module.load_balancer.api_green_target_group_name
-}
-
-module "code_deploy_frontend" {
-  source                       = "../../modules/code_deploy"
-  project                      = var.project
-  environment                  = var.environment
-  region                       = var.region
-  app_name_suffix              = "front"
-  codedeploy_service_role_arn  = module.iam.codedeploy_service_role_arn
-  cluster_name                 = module.ecs_cluster.cluster_name
-  service_name                 = module.ecs_frontend.service_name
-  alb_listener_arn             = module.load_balancer.alb_listener_arn
-  blue_target_group_name       = module.load_balancer.frontend_blue_target_group_name
-  green_target_group_name      = module.load_balancer.frontend_green_target_group_name
-}

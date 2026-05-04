@@ -1,6 +1,6 @@
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_dir  = "${path.root}/../../lambda/s3_processor"
+  source_dir  = "${path.root}/../../../lambda/s3_processor"
   output_path = "${path.module}/lambda_processor.zip"
 }
 

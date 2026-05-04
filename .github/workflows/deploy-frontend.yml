@@ -35,15 +35,11 @@ jobs:
             echo "ecs_cluster=alfalah-ai-prod-cluster"                  >> $GITHUB_OUTPUT
             echo "ecs_service=alfalah-ai-prod-front-svc"                >> $GITHUB_OUTPUT
             echo "ecr_repo=alfalah-ai-prod-frontend"                    >> $GITHUB_OUTPUT
-            echo "codedeploy_app=alfalah-ai-prod-front-app"             >> $GITHUB_OUTPUT
-            echo "codedeploy_dg=alfalah-ai-prod-front-dg"              >> $GITHUB_OUTPUT
           else
             echo "env_name=staging"                                      >> $GITHUB_OUTPUT
             echo "ecs_cluster=alfalah-ai-staging-cluster"               >> $GITHUB_OUTPUT
             echo "ecs_service=alfalah-ai-staging-front-svc"             >> $GITHUB_OUTPUT
             echo "ecr_repo=alfalah-ai-staging-frontend"                 >> $GITHUB_OUTPUT
-            echo "codedeploy_app=alfalah-ai-staging-front-app"          >> $GITHUB_OUTPUT
-            echo "codedeploy_dg=alfalah-ai-staging-front-dg"           >> $GITHUB_OUTPUT
           fi
 
       - name: Configure AWS credentials
@@ -75,13 +71,11 @@ jobs:
           container-name: front
           image: ${{ steps.build-image.outputs.image }}
 
-      - name: Deploy via CodeDeploy (Blue/Green)
+      - name: Deploy to Amazon ECS (Rolling Update)
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
           service: ${{ steps.target.outputs.ecs_service }}
           cluster: ${{ steps.target.outputs.ecs_cluster }}
           wait-for-service-stability: true
-          codedeploy-appspec: infrastructure/codedeploy/appspec-frontend.yaml
-          codedeploy-application: ${{ steps.target.outputs.codedeploy_app }}
-          codedeploy-deployment-group: ${{ steps.target.outputs.codedeploy_dg }}
+          force-new-deployment: true

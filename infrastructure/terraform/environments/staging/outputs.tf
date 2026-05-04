@@ -3,8 +3,12 @@ output "alb_dns_name" {
   value       = module.load_balancer.alb_dns_name
 }
 
-output "ecr_repository_url" {
-  value = module.ecr.ecr_repository_url
+output "api_repository_url" {
+  value = module.ecr.api_repository_url
+}
+
+output "frontend_repository_url" {
+  value = module.ecr.frontend_repository_url
 }
 
 output "s3_bucket_name" {
