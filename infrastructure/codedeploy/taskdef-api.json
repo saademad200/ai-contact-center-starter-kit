@@ -33,6 +33,24 @@
                     "name": "ENVIRONMENT",
                     "value": "prod"
                 }
+            ],
+            "secrets": [
+                {
+                    "name": "OPENAI_API_KEY",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:<ACCOUNT_ID>:secret:alfalah-ai/prod/OPENAI_API_KEY"
+                },
+                {
+                    "name": "LANGFUSE_PUBLIC_KEY",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:<ACCOUNT_ID>:secret:alfalah-ai/prod/LANGFUSE_PUBLIC_KEY"
+                },
+                {
+                    "name": "LANGFUSE_SECRET_KEY",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:<ACCOUNT_ID>:secret:alfalah-ai/prod/LANGFUSE_SECRET_KEY"
+                },
+                {
+                    "name": "JWT_SECRET_KEY",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:<ACCOUNT_ID>:secret:alfalah-ai/prod/JWT_SECRET_KEY"
+                }
             ]
         }
     ]
