@@ -45,6 +45,7 @@ Thumbs.db
 
 # ── Coverage ─────────────────────────────────────────
 htmlcov/
+test-results/
 .coverage
 coverage.xml
 
