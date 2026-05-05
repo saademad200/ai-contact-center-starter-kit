@@ -56,9 +56,7 @@ async def upload_document(
 
     if destination == "rag":
         if not file.filename.lower().endswith(".pdf"):
-            raise HTTPException(
-                status_code=400, detail="RAG destination requires a PDF file"
-            )
+            raise HTTPException(status_code=400, detail="RAG destination requires a PDF file")
 
         chunks_count = await ingest_pdf(
             pdf_bytes=file_bytes,
@@ -70,9 +68,7 @@ async def upload_document(
 
     else:  # finetune
         s3_key = f"raw/{doc_id}/{file.filename}"
-        s3_uri = await upload_file(
-            file_bytes, s3_key, file.content_type or "application/octet-stream"
-        )
+        s3_uri = await upload_file(file_bytes, s3_key, file.content_type or "application/octet-stream")
         record["status"] = "uploaded_to_s3"
         record["s3_uri"] = s3_uri
 
@@ -87,9 +83,7 @@ async def list_documents(_: Annotated[dict, Depends(require_admin)]) -> dict[str
 
 
 @router.delete("/{doc_id}")
-async def delete_document(
-    doc_id: str, _: Annotated[dict, Depends(require_admin)]
-) -> dict[str, str]:
+async def delete_document(doc_id: str, _: Annotated[dict, Depends(require_admin)]) -> dict[str, str]:
     table = get_table("documents")
     item = table.get_item(Key={"pk": doc_id, "sk": "DOC"}).get("Item")
     if not item:

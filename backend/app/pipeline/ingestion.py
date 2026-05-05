@@ -28,9 +28,7 @@ def _clean_text(text: str) -> str:
     return text
 
 
-def _chunk_text(
-    text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP
-) -> list[str]:
+def _chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
     """Simple character-level sliding window chunker."""
     chunks = []
     start = 0

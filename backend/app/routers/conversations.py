@@ -18,9 +18,7 @@ router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
 @router.get("")
-async def list_conversations(
-    _: Annotated[dict, Depends(require_admin)]
-) -> dict[str, Any]:
+async def list_conversations(_: Annotated[dict, Depends(require_admin)]) -> dict[str, Any]:
     """List all conversations (scan — admin only)."""
     table = get_table("conversations")
     result = table.scan()

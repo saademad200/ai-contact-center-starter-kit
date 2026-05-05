@@ -46,9 +46,7 @@ class TestToolRegistry:
             mock_response = MagicMock()
             mock_response.text = "<html><body>NAV data</body></html>"
             mock_response.raise_for_status = MagicMock()
-            mock_client.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client.return_value
-            )
+            mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client.return_value)
             mock_client.return_value.__aexit__ = AsyncMock(return_value=False)
             mock_client.return_value.get = AsyncMock(return_value=mock_response)
             result = await execute_tool("get_fund_nav", args)

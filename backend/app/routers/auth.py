@@ -24,9 +24,7 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> T
     response = table.get_item(Key={"pk": form_data.username, "sk": "USER"})
     user = response.get("Item")
 
-    if not user or not verify_password(
-        form_data.password, user.get("hashed_password", "")
-    ):
+    if not user or not verify_password(form_data.password, user.get("hashed_password", "")):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",

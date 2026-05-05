@@ -30,15 +30,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(data: dict[str, Any]) -> str:
     to_encode = data.copy()
-    expire = datetime.now(UTC) + timedelta(
-        minutes=settings.jwt_access_token_expire_minutes
-    )
+    expire = datetime.now(UTC) + timedelta(minutes=settings.jwt_access_token_expire_minutes)
     to_encode["exp"] = expire
     return cast(
         str,
-        jwt.encode(
-            to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
-        ),
+        jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm),
     )
 
 
@@ -49,9 +45,7 @@ def verify_token(token: str) -> dict[str, Any]:
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(
-            token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
-        )
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         return cast(dict[str, Any], payload)
     except JWTError:
         raise credentials_exception from None

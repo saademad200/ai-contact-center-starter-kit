@@ -26,15 +26,11 @@ def run_evaluation() -> None:
     # We only want this to run when there's a valid key, or we mock it.
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key or api_key == "sk-test-placeholder":  # pragma: allowlist secret
-        print(
-            "⚠️ OPENAI_API_KEY is missing or placeholder. Skipping actual OpenAI LLM evaluation."
-        )
+        print("⚠️ OPENAI_API_KEY is missing or placeholder. Skipping actual OpenAI LLM evaluation.")
         print("✅ Tool Evaluation PASSED (Skipped).")
         sys.exit(0)
 
-    dataset_path = (
-        Path(__file__).parent.parent / "tests" / "eval" / "golden_dataset.json"
-    )
+    dataset_path = Path(__file__).parent.parent / "tests" / "eval" / "golden_dataset.json"
     with open(dataset_path) as f:
         dataset = json.load(f)
 
@@ -62,13 +58,9 @@ def run_evaluation() -> None:
 
         if actual_tool == expected_tool:
             correct += 1
-            print(
-                f"  [{i+1}/{total}] ✅ PASS | Expected: {expected_tool} | Got: {actual_tool}"
-            )
+            print(f"  [{i + 1}/{total}] ✅ PASS | Expected: {expected_tool} | Got: {actual_tool}")
         else:
-            print(
-                f"  [{i+1}/{total}] ❌ FAIL | Expected: {expected_tool} | Got: {actual_tool} | Query: {query}"
-            )
+            print(f"  [{i + 1}/{total}] ❌ FAIL | Expected: {expected_tool} | Got: {actual_tool} | Query: {query}")
 
     accuracy = (correct / total) * 100
     print("\n--- Evaluation Complete ---")

@@ -50,10 +50,7 @@ def _load_history(conversation_id: str) -> list[dict[str, Any]]:
         ExpressionAttributeValues={":pk": conversation_id},
         ScanIndexForward=True,
     )
-    return [
-        {"role": item["role"], "content": item["content"]}
-        for item in response.get("Items", [])
-    ]
+    return [{"role": item["role"], "content": item["content"]} for item in response.get("Items", [])]
 
 
 def _ensure_conversation(conversation_id: str) -> None:

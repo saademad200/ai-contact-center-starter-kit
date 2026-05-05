@@ -18,9 +18,7 @@ def get_s3_client() -> Any:
     return _s3_client
 
 
-async def upload_file(
-    file_bytes: bytes, s3_key: str, content_type: str = "application/octet-stream"
-) -> str:
+async def upload_file(file_bytes: bytes, s3_key: str, content_type: str = "application/octet-stream") -> str:
     """Uploads bytes to S3 and returns the S3 URI."""
     get_s3_client().put_object(
         Bucket=settings.s3_bucket_name,

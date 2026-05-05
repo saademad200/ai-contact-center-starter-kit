@@ -9,23 +9,13 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("/stats")
-async def get_dashboard_stats(
-    _: Annotated[dict, Depends(require_admin)]
-) -> dict[str, Any]:
+async def get_dashboard_stats(_: Annotated[dict, Depends(require_admin)]) -> dict[str, Any]:
     convs = get_table("conversations").scan().get("Items", [])
     tickets = get_table("tickets").scan().get("Items", [])
     docs = get_table("documents").scan().get("Items", [])
 
-    model_item = (
-        get_table("model-registry")
-        .get_item(Key={"pk": "ACTIVE_MODEL", "sk": "ACTIVE_MODEL"})
-        .get("Item")
-    )
-    prompt_item = (
-        get_table("prompt-registry")
-        .get_item(Key={"pk": "ACTIVE_PROMPT", "sk": "ACTIVE_PROMPT"})
-        .get("Item")
-    )
+    model_item = get_table("model-registry").get_item(Key={"pk": "ACTIVE_MODEL", "sk": "ACTIVE_MODEL"}).get("Item")
+    prompt_item = get_table("prompt-registry").get_item(Key={"pk": "ACTIVE_PROMPT", "sk": "ACTIVE_PROMPT"}).get("Item")
 
     return {
         "total_conversations": len(convs),

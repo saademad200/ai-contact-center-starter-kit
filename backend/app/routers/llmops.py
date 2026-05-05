@@ -64,9 +64,7 @@ async def create_prompt(
 
 
 @router.put("/prompts/{pk}/activate")
-async def activate_prompt(
-    pk: str, _: Annotated[dict, Depends(require_admin)]
-) -> dict[str, str]:
+async def activate_prompt(pk: str, _: Annotated[dict, Depends(require_admin)]) -> dict[str, str]:
     table = get_table("prompt-registry")
 
     resp = table.get_item(Key={"pk": pk, "sk": "PROMPT"})
@@ -120,9 +118,7 @@ async def trigger_finetune(
 
 
 @router.get("/finetune/{job_id}")
-async def check_finetune_status(
-    job_id: str, _: Annotated[dict, Depends(require_admin)]
-) -> dict[str, Any]:
+async def check_finetune_status(job_id: str, _: Annotated[dict, Depends(require_admin)]) -> dict[str, Any]:
     """Checks the real-time status of a fine-tuning job from OpenAI."""
     job_status = await get_job_status(job_id)
 
@@ -146,9 +142,7 @@ async def check_finetune_status(
 
 
 @router.put("/models/{job_id}/activate")
-async def activate_model(
-    job_id: str, _: Annotated[dict, Depends(require_admin)]
-) -> dict[str, str]:
+async def activate_model(job_id: str, _: Annotated[dict, Depends(require_admin)]) -> dict[str, str]:
     """Sets a fine-tuned model as the active model in the registry."""
     table = get_table("model-registry")
     resp = table.get_item(Key={"pk": job_id, "sk": "FT_JOB"})
