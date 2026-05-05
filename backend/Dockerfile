@@ -29,6 +29,10 @@ COPY --from=builder /app/wheels /wheels
 COPY --from=builder /app/requirements.txt .
 RUN pip install --no-cache /wheels/*
 
+# Pre-download embedding model so it's baked into the image — no cold-start
+# download at runtime and no outbound internet dependency on boot
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+
 # Create a non-root user
 RUN addgroup --system app && adduser --system --group app
 
