@@ -22,10 +22,10 @@ jobs:
         env:
           ENVIRONMENT: test
           DYNAMODB_ENDPOINT_URL: ""
-          OPENAI_API_KEY: sk-test-placeholder
+          OPENAI_API_KEY: sk-test-placeholder  # pragma: allowlist secret
           AWS_DEFAULT_REGION: us-east-1
           AWS_ACCESS_KEY_ID: test
-          AWS_SECRET_ACCESS_KEY: test
+          AWS_SECRET_ACCESS_KEY: test  # pragma: allowlist secret
         run: cd backend && pytest tests/unit/ -v --tb=short
 
   e2e-playwright:

@@ -27,8 +27,10 @@ jobs:
 
       - name: Resolve deployment target
         id: target
+        env:
+          GIT_REF: ${{ github.ref_name }}
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
+          if [ "$GIT_REF" = "main" ]; then
             echo "env_name=prod"                                         >> $GITHUB_OUTPUT
             echo "ecs_cluster=alfalah-ai-prod-cluster"                  >> $GITHUB_OUTPUT
             echo "ecs_service=alfalah-ai-prod-front-svc"                >> $GITHUB_OUTPUT

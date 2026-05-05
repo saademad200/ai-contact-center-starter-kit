@@ -11,7 +11,7 @@ import pytest
 # Tests: tool_registry
 # ─────────────────────────────────────────────────────────────
 class TestToolRegistry:
-    def test_all_tools_registered(self):
+    def test_all_tools_registered(self) -> None:
         from app.agent.tool_registry import OPENAI_TOOLS, TOOL_FUNCTIONS
 
         assert "get_fund_nav" in TOOL_FUNCTIONS
@@ -19,7 +19,7 @@ class TestToolRegistry:
         assert "search_kb" in TOOL_FUNCTIONS
         assert len(OPENAI_TOOLS) == 3
 
-    def test_openai_tools_schema_valid(self):
+    def test_openai_tools_schema_valid(self) -> None:
         from app.agent.tool_registry import OPENAI_TOOLS
 
         for tool in OPENAI_TOOLS:
@@ -29,14 +29,14 @@ class TestToolRegistry:
             assert "parameters" in tool["function"]
 
     @pytest.mark.asyncio
-    async def test_execute_tool_unknown(self):
+    async def test_execute_tool_unknown(self) -> None:
         from app.agent.tool_registry import execute_tool
 
         result = await execute_tool("nonexistent_tool", "{}")
         assert "not registered" in result
 
     @pytest.mark.asyncio
-    async def test_execute_tool_get_fund_nav(self):
+    async def test_execute_tool_get_fund_nav(self) -> None:
         import json
 
         from app.agent.tool_registry import execute_tool
@@ -60,7 +60,7 @@ class TestToolRegistry:
 # ─────────────────────────────────────────────────────────────
 class TestEmbeddingService:
     @pytest.mark.asyncio
-    async def test_generate_embedding_returns_list(self):
+    async def test_generate_embedding_returns_list(self) -> None:
         from app.services.embedding_service import generate_embedding
 
         embedding = await generate_embedding("test query about mutual funds")
@@ -68,7 +68,7 @@ class TestEmbeddingService:
         assert len(embedding) == 384  # all-MiniLM-L6-v2 output dim
 
     @pytest.mark.asyncio
-    async def test_generate_embeddings_batch(self):
+    async def test_generate_embeddings_batch(self) -> None:
         from app.services.embedding_service import generate_embeddings_batch
 
         texts = ["fund one", "fund two", "policy text"]
@@ -81,7 +81,7 @@ class TestEmbeddingService:
 # Tests: ingestion pipeline
 # ─────────────────────────────────────────────────────────────
 class TestIngestionPipeline:
-    def test_clean_text(self):
+    def test_clean_text(self) -> None:
         from app.pipeline.ingestion import _clean_text
 
         raw = "  Hello   World Page 1 of 20  "
@@ -89,7 +89,7 @@ class TestIngestionPipeline:
         assert "Page 1 of 20" not in cleaned
         assert cleaned == "Hello World"
 
-    def test_chunk_text(self):
+    def test_chunk_text(self) -> None:
         from app.pipeline.ingestion import _chunk_text
 
         long_text = "A" * 2000
@@ -98,7 +98,7 @@ class TestIngestionPipeline:
         # Each chunk should not exceed chunk_size
         assert all(len(c) <= 600 for c in chunks)
 
-    def test_make_id_deterministic(self):
+    def test_make_id_deterministic(self) -> None:
         from app.pipeline.ingestion import _make_id
 
         id1 = _make_id("prospectus_alfalah", 0)

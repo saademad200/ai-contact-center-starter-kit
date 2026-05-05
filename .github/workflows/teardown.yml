@@ -29,8 +29,10 @@ jobs:
 
     steps:
       - name: Verify Confirmation
+        env:
+          CONFIRM: ${{ github.event.inputs.confirm }}
         run: |
-          if [ "${{ github.event.inputs.confirm }}" != "DESTROY" ]; then
+          if [ "$CONFIRM" != "DESTROY" ]; then
             echo "Confirmation string 'DESTROY' was not provided. Aborting."
             exit 1
           fi

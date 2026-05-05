@@ -18,7 +18,7 @@ class Token(BaseModel):
 
 
 @router.post("/token", response_model=Token)
-async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
     """Validates admin credentials and returns a JWT."""
     table = get_table("users")
     response = table.get_item(Key={"pk": form_data.username, "sk": "USER"})
@@ -34,4 +34,4 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
         )
 
     token = create_access_token({"sub": user["pk"], "role": user.get("role", "admin")})
-    return Token(access_token=token, token_type="bearer")
+    return Token(access_token=token, token_type="bearer")  # nosec B106

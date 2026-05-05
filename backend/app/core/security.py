@@ -9,7 +9,7 @@ Provides:
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
@@ -21,11 +21,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return cast(str, pwd_context.hash(password))
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    return cast(bool, pwd_context.verify(plain_password, hashed_password))
 
 
 def create_access_token(data: dict[str, Any]) -> str:
@@ -34,8 +34,11 @@ def create_access_token(data: dict[str, Any]) -> str:
         minutes=settings.jwt_access_token_expire_minutes
     )
     to_encode["exp"] = expire
-    return jwt.encode(
-        to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+    return cast(
+        str,
+        jwt.encode(
+            to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+        ),
     )
 
 
@@ -49,6 +52,6 @@ def verify_token(token: str) -> dict[str, Any]:
         payload = jwt.decode(
             token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
         )
-        return payload
+        return cast(dict[str, Any], payload)
     except JWTError:
-        raise credentials_exception
+        raise credentials_exception from None

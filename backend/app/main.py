@@ -9,7 +9,9 @@ Mounts:
 """
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting Alfalah GPT API (env=%s)", settings.environment)
     yield
     logger.info("Shutting down Alfalah GPT API")
@@ -67,5 +69,5 @@ app.include_router(chat_ws.router)  # mounts at /ws/chat/{conversation_id}
 
 # ── Health Check ───────────────────────────────────────────────────────────────
 @app.get("/health", tags=["health"])
-async def health():
+async def health() -> dict[str, Any]:
     return {"status": "ok", "environment": settings.environment}

@@ -15,7 +15,7 @@ GET    /api/v1/llmops/finetune/{job_id}  — check job status
 
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -40,7 +40,7 @@ class PromptCreate(BaseModel):
 
 
 @router.get("/prompts")
-async def list_prompts(_: Annotated[dict, Depends(require_admin)]):
+async def list_prompts(_: Annotated[dict, Depends(require_admin)]) -> dict[str, Any]:
     result = get_table("prompt-registry").scan()
     return {"prompts": result.get("Items", [])}
 
@@ -49,9 +49,9 @@ async def list_prompts(_: Annotated[dict, Depends(require_admin)]):
 async def create_prompt(
     body: PromptCreate,
     _: Annotated[dict, Depends(require_admin)],
-):
+) -> dict[str, Any]:
     pk = f"PROMPT#{uuid.uuid4().hex[:8]}"
-    item = {
+    item: dict[str, Any] = {
         "pk": pk,
         "sk": "PROMPT",
         "label": body.label,
@@ -64,16 +64,16 @@ async def create_prompt(
 
 
 @router.put("/prompts/{pk}/activate")
-async def activate_prompt(pk: str, _: Annotated[dict, Depends(require_admin)]):
+async def activate_prompt(
+    pk: str, _: Annotated[dict, Depends(require_admin)]
+) -> dict[str, str]:
     table = get_table("prompt-registry")
 
-    # Fetch the prompt to get its content
     resp = table.get_item(Key={"pk": pk, "sk": "PROMPT"})
     prompt = resp.get("Item")
     if not prompt:
         raise HTTPException(status_code=404, detail="Prompt not found")
 
-    # Write the active pointer
     table.put_item(
         Item={
             "pk": "ACTIVE_PROMPT",
@@ -95,7 +95,7 @@ class FinetuneRequest(BaseModel):
 
 
 @router.get("/models")
-async def list_models(_: Annotated[dict, Depends(require_admin)]):
+async def list_models(_: Annotated[dict, Depends(require_admin)]) -> dict[str, Any]:
     result = get_table("model-registry").scan()
     return {"models": result.get("Items", [])}
 
@@ -104,12 +104,11 @@ async def list_models(_: Annotated[dict, Depends(require_admin)]):
 async def trigger_finetune(
     body: FinetuneRequest,
     _: Annotated[dict, Depends(require_admin)],
-):
+) -> dict[str, str]:
     """Downloads JSONL from S3, uploads to OpenAI, and starts a fine-tuning job."""
     job_id = await start_fine_tuning_job(s3_key=body.s3_key, suffix=body.suffix)
 
-    # Record job in model registry
-    item = {
+    item: dict[str, Any] = {
         "pk": job_id,
         "sk": "FT_JOB",
         "s3_key": body.s3_key,
@@ -123,18 +122,17 @@ async def trigger_finetune(
 @router.get("/finetune/{job_id}")
 async def check_finetune_status(
     job_id: str, _: Annotated[dict, Depends(require_admin)]
-):
+) -> dict[str, Any]:
     """Checks the real-time status of a fine-tuning job from OpenAI."""
-    status = await get_job_status(job_id)
+    job_status = await get_job_status(job_id)
 
-    # Update DynamoDB record if job completed
-    if status.get("status") in ("succeeded", "failed"):
+    if job_status.get("status") in ("succeeded", "failed"):
         update_expr = "SET #s = :s, updated_at = :u"
-        vals: dict = {":s": status["status"], ":u": _now_iso()}
+        vals: dict[str, Any] = {":s": job_status["status"], ":u": _now_iso()}
 
-        if status.get("fine_tuned_model"):
+        if job_status.get("fine_tuned_model"):
             update_expr += ", openai_model_id = :m, is_active = :a"
-            vals[":m"] = status["fine_tuned_model"]
+            vals[":m"] = job_status["fine_tuned_model"]
             vals[":a"] = False
 
         get_table("model-registry").update_item(
@@ -144,11 +142,13 @@ async def check_finetune_status(
             ExpressionAttributeValues=vals,
         )
 
-    return status
+    return job_status
 
 
 @router.put("/models/{job_id}/activate")
-async def activate_model(job_id: str, _: Annotated[dict, Depends(require_admin)]):
+async def activate_model(
+    job_id: str, _: Annotated[dict, Depends(require_admin)]
+) -> dict[str, str]:
     """Sets a fine-tuned model as the active model in the registry."""
     table = get_table("model-registry")
     resp = table.get_item(Key={"pk": job_id, "sk": "FT_JOB"})

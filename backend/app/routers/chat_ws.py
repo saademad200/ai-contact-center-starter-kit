@@ -13,8 +13,10 @@ Flow:
      d. Send reply back over WebSocket.
 """
 
+import contextlib
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -28,9 +30,9 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _save_message(conversation_id: str, role: str, content: str) -> dict:
+def _save_message(conversation_id: str, role: str, content: str) -> dict[str, Any]:
     table = get_table("messages")
-    msg = {
+    msg: dict[str, Any] = {
         "pk": conversation_id,
         "sk": f"{_now_iso()}#{uuid.uuid4().hex[:8]}",
         "role": role,
@@ -41,7 +43,7 @@ def _save_message(conversation_id: str, role: str, content: str) -> dict:
     return msg
 
 
-def _load_history(conversation_id: str) -> list[dict]:
+def _load_history(conversation_id: str) -> list[dict[str, Any]]:
     table = get_table("messages")
     response = table.query(
         KeyConditionExpression="pk = :pk",
@@ -68,14 +70,11 @@ def _ensure_conversation(conversation_id: str) -> None:
 
 
 @router.websocket("/ws/chat/{conversation_id}")
-async def websocket_chat(websocket: WebSocket, conversation_id: str):
+async def websocket_chat(websocket: WebSocket, conversation_id: str) -> None:
     await websocket.accept()
 
-    # Ensure the conversation record exists in DynamoDB
-    try:
+    with contextlib.suppress(Exception):
         _ensure_conversation(conversation_id)
-    except Exception:
-        pass  # Already exists — that's fine
 
     try:
         while True:
@@ -84,13 +83,9 @@ async def websocket_chat(websocket: WebSocket, conversation_id: str):
             if not user_message.strip():
                 continue
 
-            # Load full history for context
             history = _load_history(conversation_id)
-
-            # Persist user message
             _save_message(conversation_id, "user", user_message)
 
-            # Call the AI agent
             try:
                 reply = await chat_with_agent(
                     conversation_history=history,
@@ -101,7 +96,6 @@ async def websocket_chat(websocket: WebSocket, conversation_id: str):
                 reply = "I'm sorry, I encountered an error. Please try again."
                 print(f"[WS] Agent error: {e}")
 
-            # Persist assistant reply
             _save_message(conversation_id, "assistant", reply)
 
             await websocket.send_text(reply)

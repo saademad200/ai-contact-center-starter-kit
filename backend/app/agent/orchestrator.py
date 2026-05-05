@@ -6,27 +6,27 @@ OpenAI client is wrapped by Langfuse for automatic tracing.
 """
 
 import os
-from typing import Any
+from typing import Any, cast
 
 import boto3
 from langfuse.openai import AsyncOpenAI
 
 from app.agent.tool_registry import OPENAI_TOOLS, execute_tool
 
-_client = None
+_client: Any = None
 
 
-def _get_client():
+def _get_client() -> AsyncOpenAI:
     global _client
     if _client is None:
         _client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
     return _client
 
 
-_dynamodb = None
+_dynamodb: Any = None
 
 
-def _get_dynamo():
+def _get_dynamo() -> Any:
     global _dynamodb
     if _dynamodb is None:
         _dynamodb = boto3.resource(
@@ -44,7 +44,7 @@ async def get_active_model() -> str:
         response = table.get_item(Key={"pk": "ACTIVE_MODEL", "sk": "ACTIVE_MODEL"})
         item = response.get("Item")
         if item and item.get("openai_model_id"):
-            return item["openai_model_id"]
+            return cast(str, item["openai_model_id"])
     except Exception as e:
         print(f"[Orchestrator] DynamoDB model lookup failed, using default: {e}")
     return "gpt-4o-mini"
@@ -57,7 +57,7 @@ async def get_system_prompt() -> str:
         response = table.get_item(Key={"pk": "ACTIVE_PROMPT", "sk": "ACTIVE_PROMPT"})
         item = response.get("Item")
         if item and item.get("content"):
-            return item["content"]
+            return cast(str, item["content"])
     except Exception as e:
         print(f"[Orchestrator] DynamoDB prompt lookup failed, using default: {e}")
 
@@ -65,7 +65,7 @@ async def get_system_prompt() -> str:
         "You are Alfalah GPT, a helpful and professional customer support AI for Alfalah Investments. "
         "You assist customers with questions about mutual funds, investments, and account management. "
         "Use the available tools to fetch live fund data when needed. "
-        "Always add the disclaimer 'Past performance is not indicative of future results.' when discussing fund performance. "
+        "Always add the disclaimer 'Past performance is not indicative of future results.' when discussing fund performance. "  # noqa: E501
         "Be concise, accurate, and professional at all times."
     )
 
@@ -126,9 +126,9 @@ async def chat_with_agent(
                 messages=messages,
                 temperature=0.3,
             )
-            return final_response.choices[0].message.content
+            return final_response.choices[0].message.content or ""
 
-        return response_message.content
+        return response_message.content or ""
 
     except Exception as e:
         print(f"[Orchestrator] Error: {e}")

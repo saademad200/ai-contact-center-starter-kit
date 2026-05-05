@@ -1,13 +1,17 @@
+from typing import Annotated, Any
+
 from fastapi import APIRouter, Depends
 
+from app.core.dependencies import require_admin
 from app.core.dynamo import get_table
-from app.core.security import require_admin
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("/stats")
-async def get_dashboard_stats(_=Depends(require_admin)):
+async def get_dashboard_stats(
+    _: Annotated[dict, Depends(require_admin)]
+) -> dict[str, Any]:
     convs = get_table("conversations").scan().get("Items", [])
     tickets = get_table("tickets").scan().get("Items", [])
     docs = get_table("documents").scan().get("Items", [])

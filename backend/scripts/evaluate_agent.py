@@ -19,13 +19,13 @@ from openai import OpenAI
 from app.agent.tool_registry import OPENAI_TOOLS
 
 
-def run_evaluation():
+def run_evaluation() -> None:
     print("Running LLMOps Tool Evaluation...")
 
     # We skip actual eval if OPENAI_API_KEY is not genuinely set (e.g., in basic PR linting)
     # We only want this to run when there's a valid key, or we mock it.
     api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key or api_key == "sk-test-placeholder":
+    if not api_key or api_key == "sk-test-placeholder":  # pragma: allowlist secret
         print(
             "⚠️ OPENAI_API_KEY is missing or placeholder. Skipping actual OpenAI LLM evaluation."
         )

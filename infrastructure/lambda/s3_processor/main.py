@@ -54,7 +54,7 @@ def convert_to_jsonl(text: str) -> str:
     return "\n".join(jsonl_lines)
 
 
-def lambda_handler(event, context):
+def lambda_handler(event: dict, context: object) -> dict:
     print("Received event: " + json.dumps(event, indent=2))
 
     # Get the object from the event

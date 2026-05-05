@@ -6,6 +6,7 @@ and upserts chunks into ChromaDB via vector_service.
 
 import asyncio
 import hashlib
+import io
 import re
 from pathlib import Path
 from typing import Any
@@ -43,11 +44,12 @@ def _chunk_text(
 def _make_id(source: str, chunk_idx: int) -> str:
     """Deterministic chunk ID based on source name and chunk index."""
     base = f"{source}__chunk_{chunk_idx}"
-    return hashlib.md5(base.encode()).hexdigest()
+    return hashlib.md5(base.encode(), usedforsecurity=False).hexdigest()
 
 
 async def ingest_pdf(
-    pdf_path: str,
+    pdf_bytes: bytes,
+    source_name: str,
     fund_name: str | None = None,
     doc_type: str = "general",
 ) -> int:
@@ -55,9 +57,9 @@ async def ingest_pdf(
     Parses a single PDF, chunks it, and upserts into ChromaDB.
     Returns the number of chunks ingested.
     """
-    source_name = Path(pdf_path).stem
+    source_stem = Path(source_name).stem
 
-    with pdfplumber.open(pdf_path) as pdf:
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         raw_pages = []
         for page in pdf.pages:
             text = page.extract_text()
@@ -68,13 +70,13 @@ async def ingest_pdf(
     chunks = _chunk_text(full_text)
 
     if not chunks:
-        print(f"[Ingest] No content extracted from {pdf_path}")
+        print(f"[Ingest] No content extracted from {source_name}")
         return 0
 
-    ids = [_make_id(source_name, i) for i in range(len(chunks))]
+    ids = [_make_id(source_stem, i) for i in range(len(chunks))]
     metadatas: list[dict[str, Any]] = [
         {
-            "source": source_name,
+            "source": source_stem,
             "doc_type": doc_type,
             "fund_name": fund_name or "general",
             "chunk_index": i,
@@ -83,7 +85,7 @@ async def ingest_pdf(
     ]
 
     await upsert_documents(ids=ids, texts=chunks, metadatas=metadatas)
-    print(f"[Ingest] {source_name} → {len(chunks)} chunks upserted.")
+    print(f"[Ingest] {source_stem} → {len(chunks)} chunks upserted.")
     return len(chunks)
 
 
@@ -94,7 +96,7 @@ async def ingest_directory(directory: str = "knowledge_base/docs") -> None:
         print(f"[Ingest] No PDFs found in {directory}")
         return
     for pdf_path in pdf_paths:
-        await ingest_pdf(str(pdf_path))
+        await ingest_pdf(pdf_path.read_bytes(), pdf_path.name)
 
 
 if __name__ == "__main__":

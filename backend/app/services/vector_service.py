@@ -10,13 +10,13 @@ from chromadb.config import Settings
 
 from app.services.embedding_service import generate_embedding, generate_embeddings_batch
 
-_client: chromadb.Client | None = None
-_collection = None
+_client: Any = None
+_collection: Any = None
 
 COLLECTION_NAME = "alfalah_kb"
 
 
-def get_collection():
+def get_collection() -> Any:
     global _client, _collection
     if _collection is None:
         _client = chromadb.Client(
@@ -38,7 +38,7 @@ async def upsert_documents(
     Embeds and upserts a batch of text chunks into ChromaDB.
     ids       — Unique IDs per chunk (e.g. "prospectus_alfalah_ghp__chunk_0")
     texts     — The raw text chunks
-    metadatas — Dicts with source info: {"source": "Alfalah GHP Prospectus", "doc_type": "prospectus", "fund_name": "..."}
+    metadatas — Dicts with source info, e.g. {"source": "...", "doc_type": "prospectus", "fund_name": "..."}
     """
     collection = get_collection()
     embeddings = await generate_embeddings_batch(texts)

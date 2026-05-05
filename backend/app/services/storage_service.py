@@ -2,6 +2,8 @@
 Storage Service — S3 upload/download via boto3.
 """
 
+from typing import Any
+
 import boto3
 
 from app.core.config import settings
@@ -9,7 +11,7 @@ from app.core.config import settings
 _s3_client = None
 
 
-def get_s3_client():
+def get_s3_client() -> Any:
     global _s3_client
     if _s3_client is None:
         _s3_client = boto3.client("s3", region_name=settings.aws_region)
@@ -32,7 +34,7 @@ async def upload_file(
 async def download_file(s3_key: str) -> bytes:
     """Downloads a file from S3 and returns its bytes."""
     response = get_s3_client().get_object(Bucket=settings.s3_bucket_name, Key=s3_key)
-    return response["Body"].read()
+    return bytes(response["Body"].read())
 
 
 async def list_files(prefix: str) -> list[str]:

@@ -7,6 +7,7 @@ Registers the resulting model in the DynamoDB Model Registry.
 import os
 import tempfile
 from datetime import UTC, datetime
+from typing import Any, cast
 
 import boto3
 from openai import AsyncOpenAI
@@ -25,7 +26,7 @@ S3_BUCKET = os.environ.get("S3_BUCKET_NAME", "alfalah-ai-data-staging")
 BASE_MODEL = "gpt-4o-mini-2024-07-18"  # cheapest fine-tuneable model
 
 
-def _s3_client():
+def _s3_client() -> Any:
     return boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
 
 
@@ -42,10 +43,12 @@ async def upload_training_file(s3_key: str) -> str:
     with open(tmp_path, "rb") as f:
         response = await _get_client().files.create(file=f, purpose="fine-tune")
 
-    return response.id
+    return cast(str, response.id)
 
 
-async def trigger_fine_tuning_job(s3_key: str = "cleaned/training.jsonl") -> dict:
+async def trigger_fine_tuning_job(
+    s3_key: str = "cleaned/training.jsonl",
+) -> dict[str, Any]:
     """
     1. Downloads cleaned JSONL from S3.
     2. Uploads it to OpenAI.
@@ -72,7 +75,7 @@ async def trigger_fine_tuning_job(s3_key: str = "cleaned/training.jsonl") -> dic
     }
 
 
-async def check_fine_tuning_status(job_id: str) -> dict:
+async def check_fine_tuning_status(job_id: str) -> dict[str, Any]:
     """Returns the current status of a fine-tuning job."""
     job = await _get_client().fine_tuning.jobs.retrieve(job_id)
     return {
@@ -90,9 +93,9 @@ async def check_fine_tuning_status(job_id: str) -> dict:
 async def start_fine_tuning_job(s3_key: str, suffix: str = "") -> str:
     """Starts a fine-tuning job and returns the job_id."""
     result = await trigger_fine_tuning_job(s3_key=s3_key)
-    return result["job_id"]
+    return cast(str, result["job_id"])
 
 
-async def get_job_status(job_id: str) -> dict:
+async def get_job_status(job_id: str) -> dict[str, Any]:
     """Alias for check_fine_tuning_status."""
     return await check_fine_tuning_status(job_id)

@@ -21,7 +21,7 @@ class RatingCreate(BaseModel):
 
 
 @router.post("", status_code=201)
-async def submit_rating(body: RatingCreate):
+async def submit_rating(body: RatingCreate) -> dict[str, str]:
     item = {
         "pk": f"RATING#{body.conversation_id}",
         "sk": f"{body.message_sk}",

@@ -19,7 +19,7 @@ OPENAI_TOOLS = [
         "type": "function",
         "function": {
             "name": "get_fund_nav",
-            "description": "Fetches the latest live Net Asset Value (NAV / unit price) for a specific Alfalah mutual fund. Use this when the user asks about current price or NAV.",
+            "description": "Fetches the latest live Net Asset Value (NAV / unit price) for a specific Alfalah mutual fund. Use this when the user asks about current price or NAV.",  # noqa: E501
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -36,7 +36,7 @@ OPENAI_TOOLS = [
         "type": "function",
         "function": {
             "name": "get_fund_performance",
-            "description": "Fetches the latest performance returns (1M, 3M, YTD, 1Y) for a specific Alfalah mutual fund. Use this when the user asks about fund returns or historical performance.",
+            "description": "Fetches the latest performance returns (1M, 3M, YTD, 1Y) for a specific Alfalah mutual fund. Use this when the user asks about fund returns or historical performance.",  # noqa: E501
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -53,7 +53,7 @@ OPENAI_TOOLS = [
         "type": "function",
         "function": {
             "name": "search_kb",
-            "description": "Searches the internal knowledge base (fund prospectuses, FAQs, SECP regulations, policies) to answer factual questions. Use this for policy, eligibility, account opening, and fee questions.",
+            "description": "Searches the internal knowledge base (fund prospectuses, FAQs, SECP regulations, policies) to answer factual questions. Use this for policy, eligibility, account opening, and fee questions.",  # noqa: E501
             "parameters": {
                 "type": "object",
                 "properties": {

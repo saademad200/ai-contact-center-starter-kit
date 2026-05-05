@@ -6,7 +6,7 @@ GET  /api/v1/conversations/{id}     — get conversation + messages
 DELETE /api/v1/conversations/{id}   — delete conversation
 """
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from boto3.dynamodb.conditions import Key
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,7 +18,9 @@ router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
 @router.get("")
-async def list_conversations(_: Annotated[dict, Depends(require_admin)]):
+async def list_conversations(
+    _: Annotated[dict, Depends(require_admin)]
+) -> dict[str, Any]:
     """List all conversations (scan — admin only)."""
     table = get_table("conversations")
     result = table.scan()
@@ -29,7 +31,7 @@ async def list_conversations(_: Annotated[dict, Depends(require_admin)]):
 async def get_conversation(
     conversation_id: str,
     _: Annotated[dict, Depends(require_admin)],
-):
+) -> dict[str, Any]:
     """Get a conversation's metadata plus all its messages."""
     conv_table = get_table("conversations")
     msg_table = get_table("messages")
@@ -50,7 +52,7 @@ async def get_conversation(
 async def delete_conversation(
     conversation_id: str,
     _: Annotated[dict, Depends(require_admin)],
-):
+) -> dict[str, str]:
     """Soft-delete a conversation by marking it archived."""
     table = get_table("conversations")
     table.update_item(

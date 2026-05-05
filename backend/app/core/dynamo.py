@@ -9,6 +9,7 @@ Table suffixes:
 """
 
 from functools import lru_cache
+from typing import Any
 
 import boto3
 
@@ -16,7 +17,7 @@ from app.core.config import settings
 
 
 @lru_cache(maxsize=1)
-def get_dynamodb_resource():
+def get_dynamodb_resource() -> Any:
     return boto3.resource(
         "dynamodb",
         region_name=settings.aws_region,
@@ -24,6 +25,6 @@ def get_dynamodb_resource():
     )
 
 
-def get_table(table_suffix: str):
+def get_table(table_suffix: str) -> Any:
     """Returns a DynamoDB Table object using the alfalah-ai- prefix."""
     return get_dynamodb_resource().Table(f"alfalah-ai-{table_suffix}")

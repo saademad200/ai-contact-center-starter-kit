@@ -11,7 +11,7 @@ DELETE /api/v1/documents/{doc_id}   — remove from ChromaDB or mark deleted in 
 
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
@@ -30,10 +30,10 @@ def _now_iso() -> str:
 @router.post("/upload")
 async def upload_document(
     _: Annotated[dict, Depends(require_admin)],
-    file: UploadFile = File(...),
+    file: Annotated[UploadFile, File()],
     destination: Literal["rag", "finetune"] = Form("rag"),
     fund_name: str = Form(""),
-):
+) -> dict[str, Any]:
     """
     Upload a document. Routes to RAG (ChromaDB) or Fine-Tuning (S3) based on destination.
     """
@@ -44,7 +44,7 @@ async def upload_document(
     doc_id = uuid.uuid4().hex
     created_at = _now_iso()
 
-    record = {
+    record: dict[str, Any] = {
         "pk": doc_id,
         "sk": "DOC",
         "filename": file.filename,
@@ -60,7 +60,6 @@ async def upload_document(
                 status_code=400, detail="RAG destination requires a PDF file"
             )
 
-        # Run ingestion pipeline: PDF → chunks → embeddings → ChromaDB
         chunks_count = await ingest_pdf(
             pdf_bytes=file_bytes,
             source_name=file.filename,
@@ -82,13 +81,15 @@ async def upload_document(
 
 
 @router.get("")
-async def list_documents(_: Annotated[dict, Depends(require_admin)]):
+async def list_documents(_: Annotated[dict, Depends(require_admin)]) -> dict[str, Any]:
     result = get_table("documents").scan()
     return {"documents": result.get("Items", [])}
 
 
 @router.delete("/{doc_id}")
-async def delete_document(doc_id: str, _: Annotated[dict, Depends(require_admin)]):
+async def delete_document(
+    doc_id: str, _: Annotated[dict, Depends(require_admin)]
+) -> dict[str, str]:
     table = get_table("documents")
     item = table.get_item(Key={"pk": doc_id, "sk": "DOC"}).get("Item")
     if not item:
