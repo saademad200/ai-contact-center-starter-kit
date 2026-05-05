@@ -45,12 +45,24 @@ async def list_ratings(_: Annotated[dict, Depends(require_admin)]) -> dict[str, 
 
 @router.get("/stats")
 async def get_dashboard_stats(_: Annotated[dict, Depends(require_admin)]) -> dict[str, Any]:
-    convs = get_table("conversations").scan().get("Items", [])
-    tickets = get_table("tickets").scan().get("Items", [])
-    docs = get_table("documents").scan().get("Items", [])
+    import asyncio
+    from functools import partial
 
-    model_item = get_table("model-registry").get_item(Key={"pk": "ACTIVE_MODEL", "sk": "ACTIVE_MODEL"}).get("Item")
-    prompt_item = get_table("prompt-registry").get_item(Key={"pk": "ACTIVE_PROMPT", "sk": "ACTIVE_PROMPT"}).get("Item")
+    loop = asyncio.get_event_loop()
+
+    def _scan(table_name: str) -> list:
+        return get_table(table_name).scan().get("Items", [])
+
+    def _get_item(table_name: str, pk: str) -> dict | None:
+        return get_table(table_name).get_item(Key={"pk": pk, "sk": pk}).get("Item")
+
+    convs, tickets, docs, model_item, prompt_item = await asyncio.gather(
+        loop.run_in_executor(None, partial(_scan, "conversations")),
+        loop.run_in_executor(None, partial(_scan, "tickets")),
+        loop.run_in_executor(None, partial(_scan, "documents")),
+        loop.run_in_executor(None, partial(_get_item, "model-registry", "ACTIVE_MODEL")),
+        loop.run_in_executor(None, partial(_get_item, "prompt-registry", "ACTIVE_PROMPT")),
+    )
 
     return {
         "total_conversations": len(convs),
