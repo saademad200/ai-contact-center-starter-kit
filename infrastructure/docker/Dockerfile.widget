@@ -1,4 +1,0 @@
-# ── Nginx Alpine for chat widget static files ──
-# See PROJECT_PLAN.md §10
-FROM nginx:alpine
-# TODO: Copy widget/ to /usr/share/nginx/html/

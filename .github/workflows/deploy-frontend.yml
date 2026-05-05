@@ -7,8 +7,6 @@ on:
       - release/rc    # staging / release candidate — protected, merge-only
     paths:
       - 'frontend/**'
-      - 'infrastructure/codedeploy/appspec-frontend.yaml'
-      - 'infrastructure/codedeploy/taskdef-frontend.json'
       - '.github/workflows/deploy-frontend.yml'
 
 env:
@@ -64,19 +62,37 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Render task definition
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: infrastructure/codedeploy/taskdef-frontend.json
-          container-name: front
-          image: ${{ steps.build-image.outputs.image }}
+      - name: Register new task definition and deploy
+        env:
+          IMAGE: ${{ steps.build-image.outputs.image }}
+          CLUSTER: ${{ steps.target.outputs.ecs_cluster }}
+          SERVICE: ${{ steps.target.outputs.ecs_service }}
+        run: |
+          CURRENT_TASK_DEF_ARN=$(aws ecs describe-services \
+            --cluster "$CLUSTER" \
+            --services "$SERVICE" \
+            --query 'services[0].taskDefinition' \
+            --output text)
 
-      - name: Deploy to Amazon ECS (Rolling Update)
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ steps.target.outputs.ecs_service }}
-          cluster: ${{ steps.target.outputs.ecs_cluster }}
-          wait-for-service-stability: true
-          force-new-deployment: true
+          NEW_TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition "$CURRENT_TASK_DEF_ARN" \
+            --query 'taskDefinition' \
+            --output json | \
+            jq 'del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)' | \
+            jq --arg IMAGE "$IMAGE" \
+              '(.containerDefinitions[] | select(.name == "front") | .image) |= $IMAGE')
+
+          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "$NEW_TASK_DEF" \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "$SERVICE" \
+            --task-definition "$NEW_TASK_DEF_ARN" \
+            --force-new-deployment
+
+          aws ecs wait services-stable \
+            --cluster "$CLUSTER" \
+            --services "$SERVICE"
