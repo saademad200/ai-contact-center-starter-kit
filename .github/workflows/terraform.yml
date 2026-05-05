@@ -2,7 +2,7 @@
 name: Terraform
 on:
   push:
-    branches: [infrastructure]
+    branches: [main,release/rc]
     paths: ['infrastructure/terraform/**']
   workflow_dispatch:
     inputs:
