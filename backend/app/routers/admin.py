@@ -37,6 +37,12 @@ class UserResponse(BaseModel):
     created_at: str | None = None
 
 
+@router.get("/ratings")
+async def list_ratings(_: Annotated[dict, Depends(require_admin)]) -> dict[str, Any]:
+    items = get_table("response-ratings").scan().get("Items", [])
+    return {"ratings": items}
+
+
 @router.get("/stats")
 async def get_dashboard_stats(_: Annotated[dict, Depends(require_admin)]) -> dict[str, Any]:
     convs = get_table("conversations").scan().get("Items", [])

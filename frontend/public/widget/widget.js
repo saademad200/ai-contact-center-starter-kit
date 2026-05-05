@@ -11,6 +11,9 @@
 (function () {
   "use strict";
 
+  // Capture before any async context makes document.currentScript null
+  const SCRIPT_SRC = document.currentScript ? document.currentScript.src : null;
+
   // ── Config ────────────────────────────────────────────────
   const defaults = {
     apiUrl:  "ws://localhost:8000/ws/chat/",
@@ -45,44 +48,56 @@
   // ── DOM refs (set after inject) ───────────────────────────
   let $window, $messages, $input, $send, $typing, $offline, $launcher, $badge;
 
+  // ── Logo SVG (Alfalah geometric mark) ─────────────────────
+  const LOGO_SVG = `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M20 4L34 12V28L20 36L6 28V12L20 4Z" fill="#003057"/>
+    <path d="M20 10L28 15V25L20 30L12 25V15L20 10Z" fill="#F37021"/>
+    <path d="M20 16L24 18.5V23.5L20 26L16 23.5V18.5L20 16Z" fill="#fff"/>
+  </svg>`;
+
   // ── Inject HTML ───────────────────────────────────────────
   function injectHTML() {
     const css = document.createElement("link");
     css.rel = "stylesheet";
-    css.href = new URL("widget.css", document.currentScript
-      ? document.currentScript.src
-      : location.href
-    ).href;
+    css.href = new URL("widget.css", SCRIPT_SRC || location.href).href;
     document.head.appendChild(css);
 
     document.body.insertAdjacentHTML("beforeend", `
       <button id="alf-launcher" aria-label="Open Alfalah GPT chat">
-        <svg viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>
+        <span id="alf-launcher-label">Alfalah GPT</span>
+        <span id="alf-launcher-logo">${LOGO_SVG}</span>
         <span id="alf-unread-badge"></span>
       </button>
 
       <div id="alf-window" class="alf-hidden" role="dialog" aria-label="Alfalah GPT chat">
         <div id="alf-header">
-          <div id="alf-avatar">🤖</div>
-          <div id="alf-header-text">
-            <p id="alf-header-title">Alfalah GPT</p>
-            <p id="alf-header-sub">Powered by AI · Always here to help</p>
-          </div>
-          <div id="alf-status-dot"></div>
-          <button id="alf-close-btn" aria-label="Close chat">✕</button>
+          <span id="alf-header-logo">${LOGO_SVG}</span>
+          <p id="alf-header-title">Alfalah GPT</p>
+          <button id="alf-end-btn">End Chat</button>
+          <button id="alf-minimize-btn" aria-label="Minimize chat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
         </div>
         <div id="alf-offline">⚡ Reconnecting...</div>
         <div id="alf-messages" role="log" aria-live="polite"></div>
         <div id="alf-input-area">
-          <textarea
-            id="alf-input"
-            placeholder="Ask about funds, NAVs, or account help…"
-            rows="1"
-            aria-label="Message input"
-          ></textarea>
-          <button id="alf-send" aria-label="Send message">
-            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-          </button>
+          <div id="alf-input-row">
+            <textarea
+              id="alf-input"
+              placeholder="Type your message here..."
+              rows="1"
+              aria-label="Message input"
+            ></textarea>
+            <button id="alf-send" aria-label="Send message">
+              <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div id="alf-footer">
+          By using this AI assistant, you acknowledge and agree that responses are AI-generated.
+          <a href="#">Read more</a>
         </div>
       </div>
     `);
@@ -96,7 +111,6 @@
     $launcher = document.getElementById("alf-launcher");
     $badge    = document.getElementById("alf-unread-badge");
 
-    // Typing indicator element
     $typing.id = "alf-typing";
     $typing.innerHTML = '<span class="alf-dot"></span><span class="alf-dot"></span><span class="alf-dot"></span>';
     $messages.appendChild($typing);
@@ -247,14 +261,22 @@
   // ── Event binding ─────────────────────────────────────────
   function bindEvents() {
     $launcher.addEventListener("click", () => {
-      $window.classList.toggle("alf-hidden");
+      $window.classList.remove("alf-hidden");
       $badge.style.display = "none";
       $badge.textContent = "0";
-      if (!$window.classList.contains("alf-hidden")) $input.focus();
+      $input.focus();
     });
 
-    document.getElementById("alf-close-btn").addEventListener("click", () => {
+    document.getElementById("alf-minimize-btn").addEventListener("click", () => {
       $window.classList.add("alf-hidden");
+    });
+
+    document.getElementById("alf-end-btn").addEventListener("click", () => {
+      $window.classList.add("alf-hidden");
+      if (ws) { ws.close(); ws = null; }
+      $messages.querySelectorAll(".alf-msg, .alf-tool-indicator").forEach(el => el.remove());
+      conversationId = null;
+      sessionStorage.removeItem("alf_conv_id");
     });
 
     $send.addEventListener("click", sendMessage);

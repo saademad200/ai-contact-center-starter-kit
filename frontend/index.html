@@ -12,7 +12,7 @@
     <script src="/widget/widget.js"></script>
     <script>
       window.onload = () => {
-        if(window.AlfalahChat) {
+        if(window.AlfalahChat && !location.pathname.startsWith('/admin')) {
           window.AlfalahChat.init({
             apiUrl:  "ws://" + location.host + "/ws/chat/",
             rateUrl: "http://" + location.host + "/api/v1/ratings",
