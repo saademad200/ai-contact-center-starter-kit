@@ -144,11 +144,11 @@ function Login() {
         <form onSubmit={handleLogin} className="login-form">
           <div className="form-group">
             <label>Username</label>
-            <input value={username} onChange={e=>setUsername(e.target.value)} required />
+            <input name="username" value={username} onChange={e=>setUsername(e.target.value)} required />
           </div>
           <div className="form-group">
             <label>Password</label>
-            <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required placeholder="••••••••" />
+            <input name="password" type="password" value={password} onChange={e=>setPassword(e.target.value)} required placeholder="••••••••" />
           </div>
           <button type="submit" className="btn btn-primary btn-full">Sign In →</button>
         </form>

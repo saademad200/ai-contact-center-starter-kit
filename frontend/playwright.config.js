@@ -15,7 +15,7 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
-    command: 'npx http-server ./dist -p 8080',
+    command: 'npx vite preview --port 8080',
     port: 8080,
     reuseExistingServer: !process.env.CI,
   },
