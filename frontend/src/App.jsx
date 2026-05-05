@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { MessageSquare, Ticket, FileText, Settings, Award, LogOut, LayoutDashboard } from 'lucide-react';
+import { MessageSquare, Ticket, FileText, Settings, Award, LogOut, LayoutDashboard, Users } from 'lucide-react';
 import './index.css';
 
 const API_BASE = '/api/v1';
@@ -62,6 +62,7 @@ function AdminLayout({ children, title }) {
     { path: '/admin/knowledge-base', icon: FileText, label: 'Knowledge Base' },
     { path: '/admin/llmops', icon: Settings, label: 'LLMOps' },
     { path: '/admin/quality', icon: Award, label: 'Quality' },
+    { path: '/admin/users', icon: Users, label: 'Users' },
   ];
 
   return (
@@ -235,6 +236,142 @@ function LandingPage() {
   );
 }
 
+function UsersPage() {
+  const { token, logout } = React.useContext(AuthContext);
+  const [users, setUsers] = useState([]);
+  const [error, setError] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [formError, setFormError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadUsers = () => {
+    apiFetch('/admin/users', token)
+      .then(setUsers)
+      .catch(e => { if (e.message === 'Unauthorized') logout(); else setError(e.message); });
+  };
+
+  useEffect(() => { loadUsers(); }, [token]);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    setFormError('');
+    setSubmitting(true);
+    try {
+      await apiFetch('/admin/users', token, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: newUsername, password: newPassword }),
+      });
+      setShowModal(false);
+      setNewUsername('');
+      setNewPassword('');
+      loadUsers();
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (username) => {
+    if (!confirm(`Delete admin "${username}"? This cannot be undone.`)) return;
+    try {
+      await apiFetch(`/admin/users/${username}`, token, { method: 'DELETE' });
+      loadUsers();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <>
+      {error && <div className="alert alert-error">{error}</div>}
+      <div className="card">
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3>Admin Users</h3>
+          <button className="btn btn-primary" onClick={() => { setShowModal(true); setFormError(''); }}>
+            + Add Admin
+          </button>
+        </div>
+        <div className="card-body">
+          {users.length === 0 ? (
+            <div className="empty-state">No users found.</div>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Role</th>
+                  <th>Created</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(u => (
+                  <tr key={u.username}>
+                    <td>{u.username}</td>
+                    <td><span className="user-badge">{u.role}</span></td>
+                    <td>{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
+                    <td>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => handleDelete(u.username)}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {showModal && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <h3>Add Admin User</h3>
+            {formError && <div className="alert alert-error">{formError}</div>}
+            <form onSubmit={handleCreate} className="login-form">
+              <div className="form-group">
+                <label>Username</label>
+                <input
+                  value={newUsername}
+                  onChange={e => setNewUsername(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="form-group">
+                <label>Password <small>(min 8 characters)</small></label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  minLength={8}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  {submitting ? 'Creating…' : 'Create Admin'}
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -248,6 +385,7 @@ export default function App() {
           <Route path="/admin/knowledge-base" element={<ProtectedRoute><AdminLayout title="Knowledge Base"><div className="empty-state">KB UI...</div></AdminLayout></ProtectedRoute>} />
           <Route path="/admin/llmops" element={<ProtectedRoute><AdminLayout title="LLMOps"><div className="empty-state">LLMOps UI...</div></AdminLayout></ProtectedRoute>} />
           <Route path="/admin/quality" element={<ProtectedRoute><AdminLayout title="Quality"><div className="empty-state">Quality UI...</div></AdminLayout></ProtectedRoute>} />
+          <Route path="/admin/users" element={<ProtectedRoute><AdminLayout title="Users"><UsersPage /></AdminLayout></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>

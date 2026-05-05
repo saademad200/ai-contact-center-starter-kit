@@ -26,5 +26,5 @@ def get_dynamodb_resource() -> Any:
 
 
 def get_table(table_suffix: str) -> Any:
-    """Returns a DynamoDB Table object using the alfalah-ai- prefix."""
-    return get_dynamodb_resource().Table(f"alfalah-ai-{table_suffix}")
+    """Returns a DynamoDB Table object using the alfalah-ai-{env}- prefix."""
+    return get_dynamodb_resource().Table(f"alfalah-ai-{settings.environment}-{table_suffix}")

@@ -223,3 +223,32 @@ a:hover { text-decoration: underline; }
 .alert-error   { background: #ffebee; color: #c62828; }
 .alert-success { background: #e8f5e9; color: #2e7d32; }
 .alert-info    { background: #e3f2fd; color: #1565c0; }
+
+/* Data Table */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th { text-align: left; padding: 10px 14px; font-weight: 600; color: var(--muted); border-bottom: 2px solid var(--border); }
+.data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--bg); }
+
+/* Buttons */
+.btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: opacity 0.15s; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-primary   { background: var(--navy); color: #fff; }
+.btn-secondary { background: var(--bg); color: var(--text); border: 1.5px solid var(--border); }
+.btn-danger    { background: #ffebee; color: #c62828; }
+.btn-sm        { padding: 5px 10px; font-size: 12px; }
+.btn-primary:hover   { opacity: 0.88; }
+.btn-secondary:hover { background: var(--border); }
+.btn-danger:hover    { background: #ffcdd2; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center; z-index: 999;
+}
+.modal-card {
+  background: var(--white); border-radius: var(--radius); padding: 28px 32px;
+  width: 100%; max-width: 420px; box-shadow: 0 8px 32px rgba(0,48,87,0.18);
+}
+.modal-card h3 { margin: 0 0 18px; font-size: 1.1rem; color: var(--navy); }
