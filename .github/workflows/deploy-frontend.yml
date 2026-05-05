@@ -13,13 +13,16 @@ env:
   AWS_REGION: us-east-1
 
 jobs:
-  deploy:
-    name: Deploy Frontend → ${{ github.ref_name == 'main' && 'Production' || 'Staging' }}
+  build:
+    name: Build & Push Frontend Image
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     permissions:
       id-token: write
       contents: read
+    outputs:
+      image:       ${{ steps.push.outputs.image }}
+      ecs_cluster: ${{ steps.target.outputs.ecs_cluster }}
+      ecs_service: ${{ steps.target.outputs.ecs_service }}
 
     steps:
       - name: Checkout
@@ -31,15 +34,13 @@ jobs:
           GIT_REF: ${{ github.ref_name }}
         run: |
           if [ "$GIT_REF" = "main" ]; then
-            echo "env_name=prod"                                         >> $GITHUB_OUTPUT
-            echo "ecs_cluster=alfalah-ai-prod-cluster"                  >> $GITHUB_OUTPUT
-            echo "ecs_service=alfalah-ai-prod-front-svc"                >> $GITHUB_OUTPUT
-            echo "ecr_repo=alfalah-ai-prod-frontend"                    >> $GITHUB_OUTPUT
+            echo "ecs_cluster=alfalah-ai-prod-cluster"      >> $GITHUB_OUTPUT
+            echo "ecs_service=alfalah-ai-prod-front-svc"    >> $GITHUB_OUTPUT
+            echo "ecr_repo=alfalah-ai-prod-frontend"        >> $GITHUB_OUTPUT
           else
-            echo "env_name=staging"                                      >> $GITHUB_OUTPUT
-            echo "ecs_cluster=alfalah-ai-staging-cluster"               >> $GITHUB_OUTPUT
-            echo "ecs_service=alfalah-ai-staging-front-svc"             >> $GITHUB_OUTPUT
-            echo "ecr_repo=alfalah-ai-staging-frontend"                 >> $GITHUB_OUTPUT
+            echo "ecs_cluster=alfalah-ai-staging-cluster"   >> $GITHUB_OUTPUT
+            echo "ecs_service=alfalah-ai-staging-front-svc" >> $GITHUB_OUTPUT
+            echo "ecr_repo=alfalah-ai-staging-frontend"     >> $GITHUB_OUTPUT
           fi
 
       - name: Configure AWS Credentials
@@ -47,30 +48,47 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, and push Frontend image
-        id: build-image
+      - name: Build, tag, and push image
+        id: push
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ steps.target.outputs.ecr_repo }}
-          IMAGE_TAG: ${{ github.sha }}
+          REGISTRY:   ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ steps.target.outputs.ecr_repo }}
+          TAG:        ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f frontend/Dockerfile ./frontend
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          docker build -t $REGISTRY/$REPOSITORY:$TAG -f frontend/Dockerfile ./frontend
+          docker tag $REGISTRY/$REPOSITORY:$TAG $REGISTRY/$REPOSITORY:latest
+          docker push $REGISTRY/$REPOSITORY:$TAG
+          docker push $REGISTRY/$REPOSITORY:latest
+          echo "image=$REGISTRY/$REPOSITORY:$TAG" >> $GITHUB_OUTPUT
+
+  deploy:
+    name: Deploy Frontend → ${{ github.ref_name == 'main' && 'Production' || 'Staging' }}
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Register new task definition and deploy
         env:
-          IMAGE: ${{ steps.build-image.outputs.image }}
-          CLUSTER: ${{ steps.target.outputs.ecs_cluster }}
-          SERVICE: ${{ steps.target.outputs.ecs_service }}
+          IMAGE:   ${{ needs.build.outputs.image }}
+          CLUSTER: ${{ needs.build.outputs.ecs_cluster }}
+          SERVICE: ${{ needs.build.outputs.ecs_service }}
         run: |
           CURRENT_TASK_DEF_ARN=$(aws ecs describe-services \
             --cluster "$CLUSTER" \

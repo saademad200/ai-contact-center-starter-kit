@@ -36,6 +36,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - run: cd frontend && npm ci
+      - run: cd frontend && npm run build
       - run: cd frontend && npx playwright install --with-deps chromium
       - run: cd frontend && npx playwright test
 
