@@ -6,6 +6,7 @@ resource "aws_lb" "main" {
   subnets            = var.public_subnet_ids
 
   enable_deletion_protection = false
+  idle_timeout               = 120
 
   tags = {
     Name        = "${var.project}-${var.environment}-alb"

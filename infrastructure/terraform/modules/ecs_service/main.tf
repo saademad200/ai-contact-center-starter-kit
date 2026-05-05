@@ -1,3 +1,15 @@
+locals {
+  use_efs = var.efs_file_system_id != ""
+
+  volume_mounts = local.use_efs ? [
+    {
+      name      = "chroma-data"
+      mountPath = "/app/chroma_db"
+      readOnly  = false
+    }
+  ] : []
+}
+
 resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/ecs/${var.project}-${var.environment}-${var.service_name_suffix}"
   retention_in_days = 30
@@ -16,6 +28,21 @@ resource "aws_ecs_task_definition" "main" {
   memory                   = var.memory
   execution_role_arn       = var.ecs_task_execution_role_arn
   task_role_arn            = var.ecs_task_iam_role_arn
+
+  dynamic "volume" {
+    for_each = local.use_efs ? [1] : []
+    content {
+      name = "chroma-data"
+      efs_volume_configuration {
+        file_system_id     = var.efs_file_system_id
+        transit_encryption = "ENABLED"
+        authorization_config {
+          access_point_id = var.efs_access_point_id
+          iam             = "DISABLED"
+        }
+      }
+    }
+  }
 
   container_definitions = jsonencode([
     {
@@ -40,6 +67,7 @@ resource "aws_ecs_task_definition" "main" {
       environment = [
         { name = "ENVIRONMENT", value = var.environment }
       ]
+      mountPoints = local.volume_mounts
     }
   ])
 }
@@ -62,7 +90,6 @@ resource "aws_ecs_service" "main" {
     container_name   = var.service_name_suffix
     container_port   = var.container_port
   }
-
 
   tags = {
     Name        = "${var.project}-${var.environment}-${var.service_name_suffix}-svc"

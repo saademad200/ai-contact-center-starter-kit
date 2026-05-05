@@ -43,6 +43,15 @@ module "iam" {
   s3_bucket_arn = module.s3.bucket_arn
 }
 
+module "efs" {
+  source                = "../../modules/efs"
+  project               = var.project
+  environment           = var.environment
+  vpc_id                = module.vpc.vpc_id
+  private_subnet_ids    = module.vpc.private_subnet_ids
+  ecs_security_group_id = module.security_group.ecs_tasks_security_group_id
+}
+
 module "dynamodb" {
   source      = "../../modules/dynamodb"
   project     = var.project
@@ -94,9 +103,11 @@ module "ecs_api" {
   security_group_ids          = [module.security_group.ecs_tasks_security_group_id]
   private_subnet_ids          = module.vpc.private_subnet_ids
   desired_count               = 1
-  cpu                         = 256
-  memory                      = 512
+  cpu                         = 1024
+  memory                      = 2048
   container_port              = 8000
+  efs_file_system_id          = module.efs.file_system_id
+  efs_access_point_id         = module.efs.access_point_id
 }
 
 module "ecs_frontend" {

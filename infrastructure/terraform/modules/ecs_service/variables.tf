@@ -61,3 +61,13 @@ variable "memory" {
   type    = number
   default = 1024
 }
+
+variable "efs_file_system_id" {
+  type    = string
+  default = ""
+}
+
+variable "efs_access_point_id" {
+  type    = string
+  default = ""
+}
