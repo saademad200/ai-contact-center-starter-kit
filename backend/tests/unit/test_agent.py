@@ -61,7 +61,11 @@ class TestEmbeddingService:
     async def test_generate_embedding_returns_list(self) -> None:
         from app.services.embedding_service import generate_embedding
 
-        embedding = await generate_embedding("test query about mutual funds")
+        mock_model = MagicMock()
+        mock_model.encode.return_value.tolist.return_value = [0.0] * 384
+
+        with patch("app.services.embedding_service.get_model", return_value=mock_model):
+            embedding = await generate_embedding("test query about mutual funds")
         assert isinstance(embedding, list)
         assert len(embedding) == 384  # all-MiniLM-L6-v2 output dim
 
@@ -69,8 +73,12 @@ class TestEmbeddingService:
     async def test_generate_embeddings_batch(self) -> None:
         from app.services.embedding_service import generate_embeddings_batch
 
-        texts = ["fund one", "fund two", "policy text"]
-        embeddings = await generate_embeddings_batch(texts)
+        mock_model = MagicMock()
+        mock_model.encode.return_value.tolist.return_value = [[0.0] * 384] * 3
+
+        with patch("app.services.embedding_service.get_model", return_value=mock_model):
+            texts = ["fund one", "fund two", "policy text"]
+            embeddings = await generate_embeddings_batch(texts)
         assert len(embeddings) == 3
         assert all(len(e) == 384 for e in embeddings)
 
