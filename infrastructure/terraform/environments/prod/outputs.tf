@@ -4,6 +4,7 @@ output "alb_dns_name" {
 }
 
 output "api_repository_url" {
+  description = "Api Repository Url"
   value = module.ecr.api_repository_url
 }
 

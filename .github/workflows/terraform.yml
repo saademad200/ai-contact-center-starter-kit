@@ -27,9 +27,11 @@ permissions:
 jobs:
   terraform:
     runs-on: ubuntu-latest
+    env:
+      TF_ENV: ${{ github.event.inputs.environment || (github.ref_name == 'main' && 'prod' || 'staging') }}
     defaults:
       run:
-        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'staging' }}
+        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || (github.ref_name == 'main' && 'prod' || 'staging') }}
     steps:
       - uses: actions/checkout@v4
 
