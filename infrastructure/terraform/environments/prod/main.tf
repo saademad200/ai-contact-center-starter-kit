@@ -108,6 +108,7 @@ module "ecs_api" {
   container_port              = 8000
   efs_file_system_id          = module.efs.file_system_id
   efs_access_point_id         = module.efs.access_point_id
+  extra_env_vars              = [{ name = "S3_BUCKET_NAME", value = var.s3_bucket_name }]
 }
 
 module "ecs_frontend" {

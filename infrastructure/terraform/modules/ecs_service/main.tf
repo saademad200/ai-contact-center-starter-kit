@@ -64,9 +64,10 @@ resource "aws_ecs_task_definition" "main" {
           "awslogs-stream-prefix" = "ecs"
         }
       }
-      environment = [
-        { name = "ENVIRONMENT", value = var.environment }
-      ]
+      environment = concat(
+        [{ name = "ENVIRONMENT", value = var.environment }],
+        var.extra_env_vars
+      )
       mountPoints = local.volume_mounts
     }
   ])

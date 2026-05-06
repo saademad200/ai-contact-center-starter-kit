@@ -71,3 +71,11 @@ variable "efs_access_point_id" {
   type    = string
   default = ""
 }
+
+variable "extra_env_vars" {
+  type = list(object({
+    name  = string
+    value = string
+  }))
+  default = []
+}
