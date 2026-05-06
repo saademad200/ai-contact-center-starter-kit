@@ -497,7 +497,7 @@ function LLMOpsPage() {
   };
 
   const activatePrompt = async (pk) => {
-    try { await apiFetch(`/llmops/prompts/${pk}/activate`, token, { method: 'PUT' }); loadPrompts(); }
+    try { await apiFetch(`/llmops/prompts/${encodeURIComponent(pk)}/activate`, token, { method: 'PUT' }); loadPrompts(); }
     catch (e) { setError(e.message); }
   };
 
@@ -518,7 +518,7 @@ function LLMOpsPage() {
   };
 
   const activateModel = async (jobId) => {
-    try { await apiFetch(`/llmops/models/${jobId}/activate`, token, { method: 'PUT' }); loadModels(); }
+    try { await apiFetch(`/llmops/models/${encodeURIComponent(jobId)}/activate`, token, { method: 'PUT' }); loadModels(); }
     catch (e) { setError(e.message); }
   };
 

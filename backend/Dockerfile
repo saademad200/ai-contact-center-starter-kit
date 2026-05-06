@@ -21,6 +21,7 @@ FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV HF_HOME=/app/.cache/huggingface
 
 WORKDIR /app
 
@@ -29,8 +30,7 @@ COPY --from=builder /app/wheels /wheels
 COPY --from=builder /app/requirements.txt .
 RUN pip install --no-cache /wheels/*
 
-# Pre-download embedding model so it's baked into the image — no cold-start
-# download at runtime and no outbound internet dependency on boot
+# Pre-download embedding model into /app/.cache so the non-root user can read it
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
 # Create a non-root user
@@ -39,7 +39,7 @@ RUN addgroup --system app && adduser --system --group app
 # Copy application code
 COPY . .
 
-# Chown all the files to the app user
+# Chown all the files to the app user (includes /app/.cache with the baked model)
 RUN chown -R app:app /app
 USER app
 

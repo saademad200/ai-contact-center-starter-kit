@@ -50,7 +50,7 @@ async def create_prompt(
     body: PromptCreate,
     _: Annotated[dict, Depends(require_admin)],
 ) -> dict[str, Any]:
-    pk = f"PROMPT#{uuid.uuid4().hex[:8]}"
+    pk = f"PROMPT-{uuid.uuid4().hex[:8]}"
     item: dict[str, Any] = {
         "pk": pk,
         "sk": "PROMPT",
