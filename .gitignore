@@ -54,3 +54,6 @@ coverage.xml
 .secrets.baseline
 node_modules/
 *.zip
+
+# ── Local Claude context (personal, not for repo) ────
+CLAUDE.LOCAL.MD
