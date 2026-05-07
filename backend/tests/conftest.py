@@ -35,6 +35,7 @@ def make_table():
     Usage:
         table = make_table(scan={"Items": [...]}, get_item={"Item": {...}})
     """
+
     def _factory(
         get_item: dict | None = None,
         scan: dict | None = None,
