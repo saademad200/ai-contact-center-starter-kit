@@ -362,24 +362,25 @@ function KnowledgeBasePage() {
   const handleUpload = async (e) => {
     e.preventDefault();
     setFormError('');
-    const file = fileRef.current?.files[0];
-    if (!file) { setFormError('Select a file.'); return; }
-
-    const form = new FormData();
-    form.append('file', file);
-    form.append('destination', destination);
-    form.append('fund_name', fundName);
+    const files = Array.from(fileRef.current?.files || []);
+    if (!files.length) { setFormError('Select at least one file.'); return; }
 
     setUploading(true);
     try {
-      await fetch(`${API_BASE}/documents/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: form,
-      }).then(async res => {
-        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || 'Upload failed'); }
-        return res.json();
-      });
+      for (const file of files) {
+        const form = new FormData();
+        form.append('file', file);
+        form.append('destination', destination);
+        form.append('fund_name', fundName);
+        await fetch(`${API_BASE}/documents/upload`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: form,
+        }).then(async res => {
+          if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(`${file.name}: ${d.detail || 'Upload failed'}`); }
+          return res.json();
+        });
+      }
       setShowModal(false);
       setFundName('');
       if (fileRef.current) fileRef.current.value = '';
@@ -437,8 +438,8 @@ function KnowledgeBasePage() {
             {formError && <div className="alert alert-error">{formError}</div>}
             <form onSubmit={handleUpload} className="login-form">
               <div className="form-group">
-                <label>File</label>
-                <input type="file" ref={fileRef} accept=".pdf,.docx,.txt" required />
+                <label>Files</label>
+                <input type="file" ref={fileRef} accept=".pdf,.docx,.txt,.jsonl" multiple required />
               </div>
               <div className="form-group">
                 <label>Destination</label>
@@ -470,20 +471,22 @@ function LLMOpsPage() {
   const { token, logout } = React.useContext(AuthContext);
   const [prompts, setPrompts] = useState([]);
   const [models, setModels] = useState([]);
+  const [ftDocs, setFtDocs] = useState([]);
   const [error, setError] = useState('');
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [showFTModal, setShowFTModal] = useState(false);
   const [promptLabel, setPromptLabel] = useState('');
   const [promptContent, setPromptContent] = useState('');
-  const [ftS3Key, setFtS3Key] = useState('');
+  const [ftS3Keys, setFtS3Keys] = useState([]);
   const [ftSuffix, setFtSuffix] = useState('');
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const loadPrompts = () => apiFetch('/llmops/prompts', token).then(d => setPrompts(d.prompts || [])).catch(e => { if (e.message === 'Unauthorized') logout(); else setError(e.message); });
   const loadModels  = () => apiFetch('/llmops/models', token).then(d => setModels(d.models || [])).catch(e => setError(e.message));
+  const loadFtDocs  = () => apiFetch('/documents', token).then(d => setFtDocs((d.documents || []).filter(x => x.destination === 'finetune' && x.s3_key))).catch(() => {});
 
-  useEffect(() => { loadPrompts(); loadModels(); }, [token]);
+  useEffect(() => { loadPrompts(); loadModels(); loadFtDocs(); }, [token]);
 
   const createPrompt = async (e) => {
     e.preventDefault();
@@ -503,10 +506,13 @@ function LLMOpsPage() {
 
   const triggerFinetune = async (e) => {
     e.preventDefault();
+    if (!ftS3Keys.length) { setFormError('Select at least one file.'); return; }
     setFormError(''); setSubmitting(true);
     try {
-      await apiFetch('/llmops/finetune', token, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ s3_key: ftS3Key, suffix: ftSuffix }) });
-      setShowFTModal(false); setFtS3Key(''); setFtSuffix('');
+      for (const s3_key of ftS3Keys) {
+        await apiFetch('/llmops/finetune', token, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ s3_key, suffix: ftSuffix }) });
+      }
+      setShowFTModal(false); setFtS3Keys([]); setFtSuffix('');
       loadModels();
     } catch (err) { setFormError(err.message); }
     finally { setSubmitting(false); }
@@ -537,14 +543,20 @@ function LLMOpsPage() {
             <table className="data-table">
               <thead><tr><th>Label</th><th>Preview</th><th>Created</th><th></th></tr></thead>
               <tbody>
-                {prompts.filter(p => p.sk === 'PROMPT').map(p => (
-                  <tr key={p.pk}>
-                    <td>{p.label}</td>
-                    <td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--muted)' }}>{p.content}</td>
-                    <td>{p.created_at ? new Date(p.created_at).toLocaleDateString() : '—'}</td>
-                    <td><button className="btn btn-secondary btn-sm" onClick={() => activatePrompt(p.pk)}>Activate</button></td>
-                  </tr>
-                ))}
+                {(() => {
+                  const activePk = prompts.find(p => p.sk === 'ACTIVE_PROMPT')?.source_pk;
+                  return prompts.filter(p => p.sk === 'PROMPT').map(p => (
+                    <tr key={p.pk}>
+                      <td>{p.label}</td>
+                      <td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--muted)' }}>{p.content}</td>
+                      <td>{p.created_at ? new Date(p.created_at).toLocaleDateString() : '—'}</td>
+                      <td>{p.pk === activePk
+                        ? <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--success, #16a34a)' }}>✓ Active</span>
+                        : <button className="btn btn-secondary btn-sm" onClick={() => activatePrompt(p.pk)}>Activate</button>}
+                      </td>
+                    </tr>
+                  ));
+                })()}
               </tbody>
             </table>
           )}
@@ -608,7 +620,16 @@ function LLMOpsPage() {
             <h3>Trigger Fine-Tuning</h3>
             {formError && <div className="alert alert-error">{formError}</div>}
             <form onSubmit={triggerFinetune} className="login-form">
-              <div className="form-group"><label>S3 Key <small>(e.g. cleaned/data.jsonl)</small></label><input value={ftS3Key} onChange={e => setFtS3Key(e.target.value)} required autoFocus /></div>
+              <div className="form-group">
+                <label>Training Files <small>(hold Ctrl/Cmd to select multiple)</small></label>
+                {ftDocs.length === 0
+                  ? <p style={{ fontSize: 13, color: 'var(--muted)' }}>No fine-tuning files uploaded yet. Upload JSONL files in the Knowledge Base tab first.</p>
+                  : <select multiple value={ftS3Keys} onChange={e => setFtS3Keys(Array.from(e.target.selectedOptions, o => o.value))}
+                      style={{ width: '100%', padding: '8px', border: '1.5px solid var(--border)', borderRadius: 6, fontSize: 13, minHeight: 120 }}>
+                      {ftDocs.map(d => <option key={d.pk} value={d.s3_key}>{d.filename}</option>)}
+                    </select>
+                }
+              </div>
               <div className="form-group"><label>Model Suffix <small>(optional)</small></label><input value={ftSuffix} onChange={e => setFtSuffix(e.target.value)} placeholder="e.g. alfalah-v2" /></div>
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
                 <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? 'Starting…' : 'Start Job'}</button>
