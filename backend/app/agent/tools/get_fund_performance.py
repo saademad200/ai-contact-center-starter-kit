@@ -7,7 +7,7 @@ and approximate annualised rates from static_fund_data for projection use.
 
 from __future__ import annotations
 
-from app.agent.tools.get_fund_nav import _normalize, _best_match, _scrape_alfalah_navs
+from app.agent.tools.get_fund_nav import _best_match, _scrape_alfalah_navs
 from app.agent.tools.static_fund_data import STATIC_NAV, STATIC_RETURNS
 
 
@@ -50,10 +50,7 @@ async def get_fund_performance(fund_name: str) -> str:
             returns_entry = STATIC_RETURNS[best_r]
 
     if not nav_entry and not returns_entry:
-        return (
-            f"I don't have performance data for **{fund_name}**.\n\n"
-            f"Check: https://www.alfalahamc.com/nav-prices"
-        )
+        return f"I don't have performance data for **{fund_name}**.\n\nCheck: https://www.alfalahamc.com/nav-prices"
 
     lines = [f"**{fund_label}** — Performance Summary:\n"]
 
@@ -74,8 +71,5 @@ async def get_fund_performance(fund_name: str) -> str:
         if returns_entry.get("5y"):
             lines.append(f"  • ~5 Year Annualised:  **{returns_entry['5y']:.2f}%**")
 
-    lines.append(
-        f"\n⚠️ _Past performance is not indicative of future results._\n"
-        f"_Source: {source_label} | Alfalah AMC_"
-    )
+    lines.append(f"\n⚠️ _Past performance is not indicative of future results._\n_Source: {source_label} | Alfalah AMC_")
     return "\n".join(lines)

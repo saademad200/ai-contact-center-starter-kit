@@ -41,9 +41,7 @@ def project_investment(
         annual_return_pct: Override the expected annual return % (optional).
                            If not provided, uses the fund's historical annualised return.
     """
-    matched_cat = next(
-        (f for f in FUNDS if _normalize(f["name"]) == _normalize(fund_name)), None
-    )
+    matched_cat = next((f for f in FUNDS if _normalize(f["name"]) == _normalize(fund_name)), None)
     fund_label = matched_cat["name"] if matched_cat else fund_name
 
     # Resolve annual return

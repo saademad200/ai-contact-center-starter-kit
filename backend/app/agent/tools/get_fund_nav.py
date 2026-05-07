@@ -59,10 +59,10 @@ async def _scrape_alfalah_navs() -> dict[str, dict]:
             continue
         try:
             result[name] = {
-                "nav":                    float(option.get("data-nav", 0)),
-                "offer":                  float(option.get("data-offer", 0)),
-                "date":                   option.get("data-validity", ""),
-                "return_monthly":         float(option.get("data-return", 0)),
+                "nav": float(option.get("data-nav", 0)),
+                "offer": float(option.get("data-offer", 0)),
+                "date": option.get("data-validity", ""),
+                "return_monthly": float(option.get("data-return", 0)),
                 "return_since_inception": float(option.get("data-return_since_inspection", 0)),
             }
         except (ValueError, TypeError):

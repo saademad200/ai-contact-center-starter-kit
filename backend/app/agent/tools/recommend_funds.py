@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from app.agent.tools.fund_catalogue import FUNDS, GOAL_LABELS, HORIZON_LABELS, RISK_LABELS
 
-
 GOAL_DESCRIPTIONS = {
     "regular_income": (
         "Funds that provide monthly complementary income to cater to regular expenses "
@@ -121,7 +120,5 @@ def recommend_funds(
             f"   {f['description']}\n"
         )
 
-    lines.append(
-        "\n_To invest or learn more, visit https://www.alfalahamc.com or call 0800-ALFALAH (0800-253-2524)._"
-    )
+    lines.append("\n_To invest or learn more, visit https://www.alfalahamc.com or call 0800-ALFALAH (0800-253-2524)._")
     return "\n".join(lines)

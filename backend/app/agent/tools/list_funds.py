@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from app.agent.tools.fund_catalogue import (
     FUNDS,
-    GOAL_LABELS,
     HORIZON_LABELS,
     RISK_LABELS,
 )

@@ -14,10 +14,23 @@ class TestToolRegistry:
     def test_all_tools_registered(self) -> None:
         from app.agent.tool_registry import OPENAI_TOOLS, TOOL_FUNCTIONS
 
-        assert "get_fund_nav" in TOOL_FUNCTIONS
-        assert "get_fund_performance" in TOOL_FUNCTIONS
-        assert "search_kb" in TOOL_FUNCTIONS
-        assert len(OPENAI_TOOLS) == 3
+        expected_tools = [
+            "get_fund_nav",
+            "get_fund_performance",
+            "list_funds",
+            "recommend_funds",
+            "project_investment",
+            "calculate_historical_value",
+            "search_kb",
+        ]
+        for tool in expected_tools:
+            assert tool in TOOL_FUNCTIONS, f"Missing tool in TOOL_FUNCTIONS: {tool}"
+
+        registered_names = {t["function"]["name"] for t in OPENAI_TOOLS}
+        for tool in expected_tools:
+            assert tool in registered_names, f"Missing tool in OPENAI_TOOLS: {tool}"
+
+        assert len(OPENAI_TOOLS) == len(expected_tools)
 
     def test_openai_tools_schema_valid(self) -> None:
         from app.agent.tool_registry import OPENAI_TOOLS

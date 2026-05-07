@@ -140,8 +140,7 @@ FUNDS: list[dict] = [
         "horizon": "long",
         "goal": ["growth", "wealth_building"],
         "description": (
-            "Exchange-Traded Fund tracking Pakistan's consumer sector index, "
-            "offering low-cost passive equity exposure."
+            "Exchange-Traded Fund tracking Pakistan's consumer sector index, offering low-cost passive equity exposure."
         ),
     },
     # ── Retirement ────────────────────────────────────────────────────────────
@@ -176,9 +175,7 @@ FUNDS: list[dict] = [
         "risk": "high",
         "horizon": "long",
         "goal": ["retirement"],
-        "description": (
-            "Shariah-compliant equity pension sub-fund for long-term halal retirement savings."
-        ),
+        "description": ("Shariah-compliant equity pension sub-fund for long-term halal retirement savings."),
     },
     {
         "name": "Alfalah GHP Islamic Pension Fund - Debt Sub-Fund",

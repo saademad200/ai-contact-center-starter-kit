@@ -36,9 +36,7 @@ def calculate_historical_value(
         principal_pkr: The original investment amount in PKR.
         years_ago: How many years ago the investment was made.
     """
-    matched_cat = next(
-        (f for f in FUNDS if _normalize(f["name"]) == _normalize(fund_name)), None
-    )
+    matched_cat = next((f for f in FUNDS if _normalize(f["name"]) == _normalize(fund_name)), None)
     fund_label = matched_cat["name"] if matched_cat else fund_name
 
     # Resolve annual return

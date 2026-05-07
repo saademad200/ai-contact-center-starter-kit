@@ -21,13 +21,13 @@ from app.agent.tools.search_kb import search_kb
 
 # ── Python function map ───────────────────────────────────────────────────────
 TOOL_FUNCTIONS: dict[str, Callable] = {
-    "get_fund_nav":               get_fund_nav,
-    "get_fund_performance":       get_fund_performance,
-    "list_funds":                 list_funds,
-    "recommend_funds":            recommend_funds,
-    "project_investment":         project_investment,
+    "get_fund_nav": get_fund_nav,
+    "get_fund_performance": get_fund_performance,
+    "list_funds": list_funds,
+    "recommend_funds": recommend_funds,
+    "project_investment": project_investment,
     "calculate_historical_value": calculate_historical_value,
-    "search_kb":                  search_kb,
+    "search_kb": search_kb,
 }
 
 # ── OpenAI JSON schemas ───────────────────────────────────────────────────────
@@ -98,7 +98,15 @@ OPENAI_TOOLS = [
                     },
                     "goal": {
                         "type": "string",
-                        "enum": ["income", "parking", "regular_income", "capital_preservation", "growth", "wealth_building", "retirement"],
+                        "enum": [
+                            "income",
+                            "parking",
+                            "regular_income",
+                            "capital_preservation",
+                            "growth",
+                            "wealth_building",
+                            "retirement",
+                        ],
                         "description": "Filter by investor goal.",
                     },
                     "shariah_only": {
@@ -125,7 +133,15 @@ OPENAI_TOOLS = [
                 "properties": {
                     "goal": {
                         "type": "string",
-                        "enum": ["regular_income", "income", "parking", "capital_preservation", "growth", "wealth_building", "retirement"],
+                        "enum": [
+                            "regular_income",
+                            "income",
+                            "parking",
+                            "capital_preservation",
+                            "growth",
+                            "wealth_building",
+                            "retirement",
+                        ],
                         "description": (
                             "Investor goal. Use 'regular_income' for monthly income needs (bills, groceries, school fees). "
                             "Use 'retirement' for pension/long-term planning. Use 'growth' or 'wealth_building' for capital appreciation."

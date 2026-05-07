@@ -19,14 +19,11 @@ from app.core.dynamo import get_table
 def _init_langfuse() -> None:
     """Explicitly initialise Langfuse. Reads LANGFUSE_BASE_URL or LANGFUSE_HOST."""
     import logging
+
     pk = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
     sk = os.environ.get("LANGFUSE_SECRET_KEY", "")
     # Support both LANGFUSE_BASE_URL (.env convention) and LANGFUSE_HOST
-    host = (
-        os.environ.get("LANGFUSE_BASE_URL")
-        or os.environ.get("LANGFUSE_HOST")
-        or "https://cloud.langfuse.com"
-    )
+    host = os.environ.get("LANGFUSE_BASE_URL") or os.environ.get("LANGFUSE_HOST") or "https://cloud.langfuse.com"
     if pk and sk:
         langfuse.Langfuse(public_key=pk, secret_key=sk, host=host)
         logging.getLogger(__name__).info(f"[Langfuse] Initialised — host: {host}")
@@ -37,6 +34,7 @@ def _init_langfuse() -> None:
 
 
 _init_langfuse()
+
 
 def _get_client() -> AsyncOpenAI:
     """Always build a fresh client so secrets loaded at startup are picked up."""
