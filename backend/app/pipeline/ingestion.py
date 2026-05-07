@@ -42,7 +42,7 @@ def _chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OV
 def _make_id(source: str, chunk_idx: int) -> str:
     """Deterministic chunk ID based on source name and chunk index."""
     base = f"{source}__chunk_{chunk_idx}"
-    return hashlib.md5(base.encode(), usedforsecurity=False).hexdigest()
+    return hashlib.md5(base.encode(), usedforsecurity=False).hexdigest()  # nosec B303
 
 
 async def ingest_pdf(

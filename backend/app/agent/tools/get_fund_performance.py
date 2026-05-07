@@ -7,6 +7,8 @@ and approximate annualised rates from static_fund_data for projection use.
 
 from __future__ import annotations
 
+import contextlib
+
 from app.agent.tools.get_fund_nav import _best_match, _scrape_alfalah_navs
 from app.agent.tools.static_fund_data import STATIC_NAV, STATIC_RETURNS
 
@@ -19,10 +21,8 @@ async def get_fund_performance(fund_name: str) -> str:
     # Try live data first
     live_data: dict[str, dict] = {}
     source_label = "alfalahamc.com (live)"
-    try:
+    with contextlib.suppress(Exception):
         live_data = await _scrape_alfalah_navs()
-    except Exception:
-        pass
 
     nav_dict = live_data if live_data else STATIC_NAV
     if not live_data:

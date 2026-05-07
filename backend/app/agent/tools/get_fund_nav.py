@@ -9,6 +9,8 @@ Falls back to static seeded data if the live scrape fails.
 
 from __future__ import annotations
 
+import contextlib
+
 import httpx
 from bs4 import BeautifulSoup
 
@@ -57,7 +59,7 @@ async def _scrape_alfalah_navs() -> dict[str, dict]:
         name = option.get_text(strip=True)
         if not name:
             continue
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             result[name] = {
                 "nav": float(option.get("data-nav", 0)),
                 "offer": float(option.get("data-offer", 0)),
@@ -65,8 +67,6 @@ async def _scrape_alfalah_navs() -> dict[str, dict]:
                 "return_monthly": float(option.get("data-return", 0)),
                 "return_since_inception": float(option.get("data-return_since_inspection", 0)),
             }
-        except (ValueError, TypeError):
-            pass
 
     return result
 
@@ -78,10 +78,8 @@ async def get_fund_nav(fund_name: str) -> str:
     # Try live scrape first
     live_data: dict[str, dict] = {}
     source_label = "alfalahamc.com (live)"
-    try:
+    with contextlib.suppress(Exception):
         live_data = await _scrape_alfalah_navs()
-    except Exception:
-        pass
 
     nav_dict = live_data if live_data else STATIC_NAV
     if not live_data:

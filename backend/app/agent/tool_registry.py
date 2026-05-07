@@ -143,14 +143,17 @@ OPENAI_TOOLS = [
                             "retirement",
                         ],
                         "description": (
-                            "Investor goal. Use 'regular_income' for monthly income needs (bills, groceries, school fees). "
-                            "Use 'retirement' for pension/long-term planning. Use 'growth' or 'wealth_building' for capital appreciation."
+                            "Investor goal. Use 'regular_income' for monthly income needs "
+                            "(bills, groceries, school fees). Use 'retirement' for pension/"
+                            "long-term planning. Use 'growth' or 'wealth_building' for capital appreciation."
                         ),
                     },
                     "risk": {
                         "type": "string",
                         "enum": ["low", "medium", "high"],
-                        "description": "Risk appetite. 'low' = capital preservation, 'medium' = balanced, 'high' = equity growth.",
+                        "description": (
+                            "Risk appetite. 'low' = capital preservation, 'medium' = balanced, 'high' = equity growth."
+                        ),
                     },
                     "horizon": {
                         "type": "string",
@@ -192,7 +195,10 @@ OPENAI_TOOLS = [
                     },
                     "annual_return_pct": {
                         "type": "number",
-                        "description": "Optional override for the expected annual return %. If not provided, uses the fund's historical annualised return.",
+                        "description": (
+                            "Optional override for the expected annual return %. "
+                            "If not provided, uses the fund's historical annualised return."
+                        ),
                     },
                 },
                 "required": ["fund_name", "principal_pkr", "years"],
