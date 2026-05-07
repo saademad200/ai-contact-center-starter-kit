@@ -14,10 +14,10 @@ class TestWebSocketChat:
                 new_callable=AsyncMock,
                 return_value="Hello! How can I help?",
             ),
+            client.websocket_connect("/ws/chat/conv-001") as ws,
         ):
-            with client.websocket_connect("/ws/chat/conv-001") as ws:
-                ws.send_text("What is the NAV?")
-                reply = ws.receive_text()
+            ws.send_text("What is the NAV?")
+            reply = ws.receive_text()
 
         assert reply == "Hello! How can I help?"
 
@@ -27,10 +27,10 @@ class TestWebSocketChat:
         with (
             patch("app.routers.chat_ws.get_table", return_value=table),
             patch("app.routers.chat_ws.chat_with_agent", new_callable=AsyncMock) as mock_agent,
+            client.websocket_connect("/ws/chat/conv-002") as ws,
         ):
-            with client.websocket_connect("/ws/chat/conv-002") as ws:
-                ws.send_text("   ")
-                # close without sending a real message
+            ws.send_text("   ")
+            # close without sending a real message
 
         mock_agent.assert_not_called()
 
@@ -48,10 +48,10 @@ class TestWebSocketChat:
                 new_callable=AsyncMock,
                 return_value="follow-up reply",
             ) as mock_agent,
+            client.websocket_connect("/ws/chat/conv-003") as ws,
         ):
-            with client.websocket_connect("/ws/chat/conv-003") as ws:
-                ws.send_text("Follow-up question")
-                ws.receive_text()
+            ws.send_text("Follow-up question")
+            ws.receive_text()
 
         passed_history = mock_agent.call_args.kwargs["conversation_history"]
         assert len(passed_history) == 2
@@ -68,10 +68,10 @@ class TestWebSocketChat:
                 new_callable=AsyncMock,
                 side_effect=Exception("LLM unavailable"),
             ),
+            client.websocket_connect("/ws/chat/conv-004") as ws,
         ):
-            with client.websocket_connect("/ws/chat/conv-004") as ws:
-                ws.send_text("Hello")
-                reply = ws.receive_text()
+            ws.send_text("Hello")
+            reply = ws.receive_text()
 
         assert "error" in reply.lower()
 
@@ -85,10 +85,10 @@ class TestWebSocketChat:
                 new_callable=AsyncMock,
                 return_value="agent reply",
             ),
+            client.websocket_connect("/ws/chat/conv-005") as ws,
         ):
-            with client.websocket_connect("/ws/chat/conv-005") as ws:
-                ws.send_text("Save this")
-                ws.receive_text()
+            ws.send_text("Save this")
+            ws.receive_text()
 
         # put_item called at least twice: once for user msg, once for assistant reply
         assert table.put_item.call_count >= 2

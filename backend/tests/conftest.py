@@ -11,11 +11,11 @@ _mock_st = MagicMock()
 _mock_st.SentenceTransformer = MagicMock
 sys.modules.setdefault("sentence_transformers", _mock_st)
 
-import pytest
-from fastapi.testclient import TestClient
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
-from app.core.dependencies import require_admin
-from app.main import app
+from app.core.dependencies import require_admin  # noqa: E402
+from app.main import app  # noqa: E402
 
 
 @pytest.fixture
