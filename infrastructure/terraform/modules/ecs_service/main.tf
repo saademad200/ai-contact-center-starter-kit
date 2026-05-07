@@ -1,11 +1,11 @@
 locals {
   use_efs = var.efs_file_system_id != ""
 
-  volume_mounts = local.use_efs ? [
+  mount_points = local.use_efs ? [
     {
-      name      = "chroma-data"
-      mountPath = "/app/chroma_db"
-      readOnly  = false
+      sourceVolume  = "chroma-data"
+      containerPath = "/app/chroma_db"
+      readOnly      = false
     }
   ] : []
 }
@@ -24,18 +24,21 @@ resource "aws_ecs_task_definition" "main" {
   family                   = "${var.project}-${var.environment}-${var.service_name_suffix}"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = var.cpu
-  memory                   = var.memory
-  execution_role_arn       = var.ecs_task_execution_role_arn
-  task_role_arn            = var.ecs_task_iam_role_arn
+
+  cpu                   = var.cpu
+  memory                = var.memory
+  execution_role_arn    = var.ecs_task_execution_role_arn
+  task_role_arn         = var.ecs_task_iam_role_arn
 
   dynamic "volume" {
     for_each = local.use_efs ? [1] : []
     content {
       name = "chroma-data"
+
       efs_volume_configuration {
         file_system_id     = var.efs_file_system_id
         transit_encryption = "ENABLED"
+
         authorization_config {
           access_point_id = var.efs_access_point_id
           iam             = "DISABLED"
@@ -49,6 +52,7 @@ resource "aws_ecs_task_definition" "main" {
       name      = var.service_name_suffix
       image     = "${var.ecr_repository_url}:latest"
       essential = true
+
       portMappings = [
         {
           containerPort = var.container_port
@@ -56,6 +60,7 @@ resource "aws_ecs_task_definition" "main" {
           protocol      = "tcp"
         }
       ]
+
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -64,11 +69,13 @@ resource "aws_ecs_task_definition" "main" {
           "awslogs-stream-prefix" = "ecs"
         }
       }
+
       environment = concat(
         [{ name = "ENVIRONMENT", value = var.environment }],
         var.extra_env_vars
       )
-      mountPoints = local.volume_mounts
+
+      mountPoints = local.mount_points
     }
   ])
 }
@@ -77,8 +84,9 @@ resource "aws_ecs_service" "main" {
   name            = "${var.project}-${var.environment}-${var.service_name_suffix}-svc"
   cluster         = var.cluster_id
   task_definition = aws_ecs_task_definition.main.arn
-  desired_count   = var.desired_count
-  launch_type     = "FARGATE"
+
+  desired_count = var.desired_count
+  launch_type   = "FARGATE"
 
   network_configuration {
     security_groups  = var.security_group_ids
