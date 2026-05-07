@@ -484,7 +484,7 @@ function LLMOpsPage() {
 
   const loadPrompts = () => apiFetch('/llmops/prompts', token).then(d => setPrompts(d.prompts || [])).catch(e => { if (e.message === 'Unauthorized') logout(); else setError(e.message); });
   const loadModels  = () => apiFetch('/llmops/models', token).then(d => setModels(d.models || [])).catch(e => setError(e.message));
-  const loadFtDocs  = () => apiFetch('/documents', token).then(d => setFtDocs((d.documents || []).filter(x => x.destination === 'finetune' && x.s3_key))).catch(() => {});
+  const loadFtDocs  = () => apiFetch('/documents/s3-jsonl', token).then(d => setFtDocs(d.files || [])).catch(() => {});
 
   useEffect(() => { loadPrompts(); loadModels(); loadFtDocs(); }, [token]);
 
@@ -623,16 +623,16 @@ function LLMOpsPage() {
               <div className="form-group">
                 <label>Training Files <small>(hold Ctrl/Cmd to select multiple)</small></label>
                 {ftDocs.length === 0
-                  ? <p style={{ fontSize: 13, color: 'var(--muted)' }}>No fine-tuning files uploaded yet. Upload JSONL files in the Knowledge Base tab first.</p>
+                  ? <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0' }}>No JSONL files found in S3. Upload a JSONL file via the Knowledge Base tab first.</p>
                   : <select multiple value={ftS3Keys} onChange={e => setFtS3Keys(Array.from(e.target.selectedOptions, o => o.value))}
                       style={{ width: '100%', padding: '8px', border: '1.5px solid var(--border)', borderRadius: 6, fontSize: 13, minHeight: 120 }}>
-                      {ftDocs.map(d => <option key={d.pk} value={d.s3_key}>{d.filename}</option>)}
+                      {ftDocs.map(d => <option key={d.s3_key} value={d.s3_key}>{d.filename} <span style={{color:'var(--muted)',fontSize:11}}>({d.s3_key})</span></option>)}
                     </select>
                 }
               </div>
               <div className="form-group"><label>Model Suffix <small>(optional)</small></label><input value={ftSuffix} onChange={e => setFtSuffix(e.target.value)} placeholder="e.g. alfalah-v2" /></div>
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? 'Starting…' : 'Start Job'}</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting || !ftS3Keys.length}>{submitting ? 'Starting…' : 'Start Job'}</button>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowFTModal(false)}>Cancel</button>
               </div>
             </form>

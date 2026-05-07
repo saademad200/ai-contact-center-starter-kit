@@ -101,6 +101,17 @@ async def list_documents(_: Annotated[dict, Depends(require_admin)]) -> dict[str
     return {"documents": result.get("Items", [])}
 
 
+@router.get("/s3-jsonl")
+async def list_s3_jsonl_files(_: Annotated[dict, Depends(require_admin)]) -> dict[str, Any]:
+    """List all .jsonl files in the S3 bucket for fine-tuning selection."""
+    from app.services.storage_service import list_files
+
+    all_keys = await list_files("")  # list entire bucket
+    jsonl_keys = [k for k in all_keys if k.endswith(".jsonl")]
+    files = [{"s3_key": k, "filename": k.split("/")[-1]} for k in jsonl_keys]
+    return {"files": files}
+
+
 @router.get("/{doc_id}")
 async def get_document(doc_id: str, _: Annotated[dict, Depends(require_admin)]) -> dict[str, Any]:
     item = get_table("documents").get_item(Key={"pk": doc_id, "sk": "DOC"}).get("Item")
