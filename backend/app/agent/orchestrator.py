@@ -9,19 +9,27 @@ import os
 from typing import Any, cast
 
 import boto3
+import langfuse
 from langfuse.openai import AsyncOpenAI
 
 from app.agent.tool_registry import OPENAI_TOOLS, execute_tool
 from app.core.dynamo import get_table
 
-_client: Any = None
 
+def _init_langfuse() -> None:
+    """Explicitly initialise Langfuse so it picks up secrets from os.environ."""
+    pk = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
+    sk = os.environ.get("LANGFUSE_SECRET_KEY", "")
+    host = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+    if pk and sk:
+        langfuse.Langfuse(public_key=pk, secret_key=sk, host=host)
+
+
+_init_langfuse()
 
 def _get_client() -> AsyncOpenAI:
-    global _client
-    if _client is None:
-        _client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-    return _client
+    """Always build a fresh client so secrets loaded at startup are picked up."""
+    return AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 
 _dynamodb: Any = None
