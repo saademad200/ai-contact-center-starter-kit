@@ -12,6 +12,7 @@ import boto3
 from langfuse.openai import AsyncOpenAI
 
 from app.agent.tool_registry import OPENAI_TOOLS, execute_tool
+from app.core.dynamo import get_table
 
 _client: Any = None
 
@@ -40,7 +41,7 @@ def _get_dynamo() -> Any:
 async def get_active_model() -> str:
     """Fetches the currently active fine-tuned model ID from DynamoDB Model Registry."""
     try:
-        table = _get_dynamo().Table("alfalah-model-registry")
+        table = get_table("model-registry")
         response = table.get_item(Key={"pk": "ACTIVE_MODEL", "sk": "ACTIVE_MODEL"})
         item = response.get("Item")
         if item and item.get("openai_model_id"):
@@ -53,7 +54,7 @@ async def get_active_model() -> str:
 async def get_system_prompt() -> str:
     """Fetches the active system prompt version from DynamoDB Prompt Registry."""
     try:
-        table = _get_dynamo().Table("alfalah-prompt-registry")
+        table = get_table("prompt-registry")
         response = table.get_item(Key={"pk": "ACTIVE_PROMPT", "sk": "ACTIVE_PROMPT"})
         item = response.get("Item")
         if item and item.get("content"):

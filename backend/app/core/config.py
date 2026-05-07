@@ -49,15 +49,25 @@ class Settings(BaseSettings):
                 response = client.get_secret_value(SecretId=secret_name)
                 secrets = json.loads(response["SecretString"])
 
-                # Update attributes if they exist in the secret
+                # Update attributes if they exist in the secret, and inject into os.environ
+                import os
+
                 if "OPENAI_API_KEY" in secrets:
                     self.openai_api_key = secrets["OPENAI_API_KEY"]
+                    os.environ["OPENAI_API_KEY"] = secrets["OPENAI_API_KEY"]
                 if "LANGFUSE_PUBLIC_KEY" in secrets:
                     self.langfuse_public_key = secrets["LANGFUSE_PUBLIC_KEY"]
+                    os.environ["LANGFUSE_PUBLIC_KEY"] = secrets["LANGFUSE_PUBLIC_KEY"]
                 if "LANGFUSE_SECRET_KEY" in secrets:
                     self.langfuse_secret_key = secrets["LANGFUSE_SECRET_KEY"]
+                    os.environ["LANGFUSE_SECRET_KEY"] = secrets["LANGFUSE_SECRET_KEY"]
                 if "JWT_SECRET_KEY" in secrets:
                     self.jwt_secret_key = secrets["JWT_SECRET_KEY"]
+                    os.environ["JWT_SECRET_KEY"] = secrets["JWT_SECRET_KEY"]
+
+                # Disable ChromaDB telemetry
+                os.environ["ANONYMIZED_TELEMETRY"] = "False"
+
             except Exception as e:
                 import logging
 
