@@ -85,6 +85,7 @@ async def upload_document(
         s3_key = f"raw/{doc_id}/{file.filename}"
         s3_uri = await upload_file(file_bytes, s3_key, file.content_type or "application/octet-stream")
         record["status"] = "uploaded_to_s3"
+        record["s3_key"] = s3_key
         record["s3_uri"] = s3_uri
         get_table("documents").put_item(Item=record)
     else:
