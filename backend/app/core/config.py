@@ -60,6 +60,7 @@ class Settings(BaseSettings):
                     self.jwt_secret_key = secrets["JWT_SECRET_KEY"]
             except Exception as e:
                 import logging
+
                 logging.getLogger(__name__).warning(f"Failed to load secrets from AWS Secrets Manager: {e}")
 
         return self
