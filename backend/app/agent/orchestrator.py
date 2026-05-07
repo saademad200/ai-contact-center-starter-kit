@@ -17,12 +17,23 @@ from app.core.dynamo import get_table
 
 
 def _init_langfuse() -> None:
-    """Explicitly initialise Langfuse so it picks up secrets from os.environ."""
+    """Explicitly initialise Langfuse. Reads LANGFUSE_BASE_URL or LANGFUSE_HOST."""
+    import logging
     pk = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
     sk = os.environ.get("LANGFUSE_SECRET_KEY", "")
-    host = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+    # Support both LANGFUSE_BASE_URL (.env convention) and LANGFUSE_HOST
+    host = (
+        os.environ.get("LANGFUSE_BASE_URL")
+        or os.environ.get("LANGFUSE_HOST")
+        or "https://cloud.langfuse.com"
+    )
     if pk and sk:
         langfuse.Langfuse(public_key=pk, secret_key=sk, host=host)
+        logging.getLogger(__name__).info(f"[Langfuse] Initialised — host: {host}")
+    else:
+        logging.getLogger(__name__).warning(
+            "[Langfuse] Skipped — LANGFUSE_PUBLIC_KEY or LANGFUSE_SECRET_KEY not found in environment."
+        )
 
 
 _init_langfuse()

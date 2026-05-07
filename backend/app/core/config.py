@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
     langfuse_host: str = "https://cloud.langfuse.com"
+    langfuse_base_url: str = ""  # alias used in .env / Secrets Manager
 
     # JWT Auth (admin panel)
     jwt_secret_key: str = "change-me-in-production"
@@ -61,6 +62,12 @@ class Settings(BaseSettings):
                 if "LANGFUSE_SECRET_KEY" in secrets:
                     self.langfuse_secret_key = secrets["LANGFUSE_SECRET_KEY"]
                     os.environ["LANGFUSE_SECRET_KEY"] = secrets["LANGFUSE_SECRET_KEY"]
+                # Support LANGFUSE_BASE_URL (the key name used in .env and Secrets Manager)
+                langfuse_url = secrets.get("LANGFUSE_BASE_URL") or secrets.get("LANGFUSE_HOST")
+                if langfuse_url:
+                    self.langfuse_host = langfuse_url
+                    os.environ["LANGFUSE_BASE_URL"] = langfuse_url
+                    os.environ["LANGFUSE_HOST"] = langfuse_url
                 if "JWT_SECRET_KEY" in secrets:
                     self.jwt_secret_key = secrets["JWT_SECRET_KEY"]
                     os.environ["JWT_SECRET_KEY"] = secrets["JWT_SECRET_KEY"]
