@@ -73,7 +73,8 @@ resource "aws_iam_policy" "ecs_task_policy" {
           "dynamodb:*",
           "s3:*",
           "ses:SendEmail",
-          "ses:SendRawEmail"
+          "ses:SendRawEmail",
+          "secretsmanager:GetSecretValue"
         ]
         Resource = "*"
       }
