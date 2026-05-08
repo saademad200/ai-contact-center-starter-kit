@@ -26,6 +26,7 @@
   let config = {};
   let reconnectAttempts = 0;
   const MAX_RECONNECT = 5;
+  let responding = false; // true while server is streaming; blocks new sends
 
   // ── Helpers ───────────────────────────────────────────────
   function uuid() {
@@ -231,9 +232,9 @@
     };
 
     // Streaming state — one active bubble accumulates chunks
-    let _streamBubble = null;
-    let _streamText   = "";
-    let _streamSk     = null;
+    let _streamBubble  = null;
+    let _streamText    = "";
+    let _streamSk      = null;
     let _toolIndicator = null;
 
     ws.onmessage = (e) => {
@@ -282,10 +283,11 @@
           }
 
           _streamBubble = null;
-          _streamText   = "";
           _streamSk     = null;
         }
-        // Re-enable send
+        // Always reset text, even if no bubble was active
+        _streamText  = "";
+        responding   = false;
         $send.disabled = ws.readyState !== WebSocket.OPEN;
         return;
       }
@@ -295,6 +297,7 @@
       if (_toolIndicator) { _toolIndicator.remove(); _toolIndicator = null; }
 
       if (!_streamBubble) {
+        responding = true; // block new sends until STREAM_END
         _streamSk = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
         const wrap = document.createElement("div");
         wrap.className = "alf-msg alf-bot";
@@ -335,11 +338,13 @@
     setTimeout(connect, delay);
   }
 
-  // ── Send message ───────────────────────────────────────────
+  // ── Send message ─────────────────────────────────
   function sendMessage() {
     const text = $input.value.trim();
-    if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+    // Guard: prevent sending while bot is still streaming (Enter key bypasses button disabled state)
+    if (!text || !ws || ws.readyState !== WebSocket.OPEN || responding) return;
 
+    responding = true;
     appendMessage("user", text, null);
     showTyping(true);
     $send.disabled = true;
@@ -347,7 +352,6 @@
     $input.style.height = "auto";
 
     ws.send(text);
-    setTimeout(() => { $send.disabled = ws.readyState !== WebSocket.OPEN; }, 100);
   }
 
   // ── Event binding ─────────────────────────────────────────
