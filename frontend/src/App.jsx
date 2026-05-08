@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { MessageSquare, Ticket, FileText, Settings, Award, LogOut, LayoutDashboard, Users, Upload, RefreshCw } from 'lucide-react';
+import { MessageSquare, FileText, Settings, Award, LogOut, LayoutDashboard, Users, Upload, RefreshCw } from 'lucide-react';
 import { marked } from 'marked';
 import './index.css';
 
@@ -49,7 +49,6 @@ function AdminLayout({ children, title }) {
   const navItems = [
     { path: '/admin/dashboard',      icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/admin/conversations',  icon: MessageSquare,   label: 'Conversations' },
-    { path: '/admin/tickets',        icon: Ticket,          label: 'Tickets' },
     { path: '/admin/knowledge-base', icon: FileText,        label: 'Knowledge Base' },
     { path: '/admin/llmops',         icon: Settings,        label: 'LLMOps' },
     { path: '/admin/quality',        icon: Award,           label: 'Quality' },
@@ -184,7 +183,6 @@ function Dashboard() {
     <>
       <div className="stats-grid">
         <div className="stat-card"><div className="stat-icon"><MessageSquare size={28}/></div><div className="stat-value">{stats.total_conversations}</div><div className="stat-label">Total Conversations</div></div>
-        <div className="stat-card"><div className="stat-icon"><Ticket size={28}/></div><div className="stat-value">{stats.open_tickets}</div><div className="stat-label">Open Tickets</div></div>
         <div className="stat-card"><div className="stat-icon"><FileText size={28}/></div><div className="stat-value">{stats.total_documents}</div><div className="stat-label">KB Documents</div></div>
         <div className="stat-card"><div className="stat-icon"><Settings size={28}/></div><div className="stat-value" style={{fontSize:'1.1rem'}}>{stats.active_model}</div><div className="stat-label">Active Model</div></div>
       </div>
@@ -284,66 +282,6 @@ function ConversationsPage() {
             </div>
           </div>
         )}
-      </div>
-    </>
-  );
-}
-
-function TicketsPage() {
-  const { token, logout } = React.useContext(AuthContext);
-  const [tickets, setTickets] = useState([]);
-  const [error, setError] = useState('');
-
-  const load = () => apiFetch('/tickets', token)
-    .then(d => setTickets(d.tickets || []))
-    .catch(e => { if (e.message === 'Unauthorized') logout(); else setError(e.message); });
-
-  useEffect(() => { load(); }, [token]);
-
-  const updateStatus = async (id, status) => {
-    try {
-      await apiFetch(`/tickets/${id}`, token, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
-      load();
-    } catch (e) { setError(e.message); }
-  };
-
-  return (
-    <>
-      <PageError msg={error} />
-      <div className="card">
-        <div className="card-header"><h3>Support Tickets ({tickets.length})</h3></div>
-        <div className="card-body" style={{ padding: 0 }}>
-          {tickets.length === 0 ? <div className="empty-state">No tickets yet.</div> : (
-            <table className="data-table">
-              <thead><tr><th>Ticket ID</th><th>Conversation</th><th>Status</th><th>Created</th><th>Update Status</th></tr></thead>
-              <tbody>
-                {tickets.map(t => (
-                  <tr key={t.pk}>
-                    <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{t.pk?.slice(0, 16)}…</td>
-                    <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{t.conversation_id?.slice(0, 16) || '—'}…</td>
-                    <td><StatusBadge status={t.status} /></td>
-                    <td>{t.created_at ? new Date(t.created_at).toLocaleDateString() : '—'}</td>
-                    <td>
-                      <select
-                        value={t.status}
-                        onChange={e => updateStatus(t.pk, e.target.value)}
-                        style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', fontSize: 13 }}
-                      >
-                        <option value="open">Open</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="resolved">Resolved</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
       </div>
     </>
   );
@@ -847,7 +785,6 @@ export default function App() {
           <Route path="/admin/login" element={<Login />} />
           <Route path="/admin/dashboard"      element={<ProtectedRoute><AdminLayout title="Dashboard">     <Dashboard />        </AdminLayout></ProtectedRoute>} />
           <Route path="/admin/conversations"  element={<ProtectedRoute><AdminLayout title="Conversations"> <ConversationsPage /></AdminLayout></ProtectedRoute>} />
-          <Route path="/admin/tickets"        element={<ProtectedRoute><AdminLayout title="Tickets">       <TicketsPage />       </AdminLayout></ProtectedRoute>} />
           <Route path="/admin/knowledge-base" element={<ProtectedRoute><AdminLayout title="Knowledge Base"><KnowledgeBasePage /></AdminLayout></ProtectedRoute>} />
           <Route path="/admin/llmops"         element={<ProtectedRoute><AdminLayout title="LLMOps">        <LLMOpsPage />        </AdminLayout></ProtectedRoute>} />
           <Route path="/admin/quality"        element={<ProtectedRoute><AdminLayout title="Quality">       <QualityPage />       </AdminLayout></ProtectedRoute>} />

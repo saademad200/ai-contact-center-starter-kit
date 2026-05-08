@@ -89,7 +89,7 @@ async def activate_prompt(pk: str, _: Annotated[dict, Depends(require_admin)]) -
 
 class FinetuneRequest(BaseModel):
     s3_keys: list[str]  # One or more S3 paths to .jsonl files to merge and fine-tune on
-    suffix: str = ""   # Optional model name suffix
+    suffix: str = ""  # Optional model name suffix
 
 
 @router.get("/models")
