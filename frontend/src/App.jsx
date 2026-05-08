@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { MessageSquare, Ticket, FileText, Settings, Award, LogOut, LayoutDashboard, Users, Upload, RefreshCw } from 'lucide-react';
+import { marked } from 'marked';
 import './index.css';
+
+// Configure marked for safe inline rendering
+marked.setOptions({ breaks: true, gfm: true });
 
 const API_BASE = '/api/v1';
 
@@ -270,7 +274,10 @@ function ConversationsPage() {
                 messages.map((m, i) => (
                   <div key={i} className={`transcript-msg transcript-${m.role === 'user' ? 'user' : 'assistant'}`}>
                     <span className="transcript-role">{m.role}</span>
-                    <div className="transcript-bubble">{m.content}</div>
+                    <div
+                      className="transcript-bubble"
+                      dangerouslySetInnerHTML={{ __html: marked.parse(m.content || '') }}
+                    />
                   </div>
                 ))
               }
@@ -509,9 +516,11 @@ function LLMOpsPage() {
     if (!ftS3Keys.length) { setFormError('Select at least one file.'); return; }
     setFormError(''); setSubmitting(true);
     try {
-      for (const s3_key of ftS3Keys) {
-        await apiFetch('/llmops/finetune', token, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ s3_key, suffix: ftSuffix }) });
-      }
+      await apiFetch('/llmops/finetune', token, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ s3_keys: ftS3Keys, suffix: ftSuffix }),
+      });
       setShowFTModal(false); setFtS3Keys([]); setFtSuffix('');
       loadModels();
     } catch (err) { setFormError(err.message); }
@@ -563,33 +572,43 @@ function LLMOpsPage() {
         </div>
       </div>
 
-      {/* Models */}
       <div className="card">
         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3>Fine-Tuning Jobs</h3>
           <button className="btn btn-primary" onClick={() => { setShowFTModal(true); setFormError(''); }}>+ Fine-Tune</button>
         </div>
         <div className="card-body" style={{ padding: 0 }}>
-          {models.length === 0 ? <div className="empty-state">No fine-tuning jobs yet.</div> : (
-            <table className="data-table">
-              <thead><tr><th>Job ID</th><th>S3 Key</th><th>Status</th><th>Model</th><th>Created</th><th></th></tr></thead>
-              <tbody>
-                {models.filter(m => m.sk === 'FT_JOB').map(m => (
-                  <tr key={m.pk}>
-                    <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{m.pk?.slice(0, 20)}…</td>
-                    <td style={{ fontSize: 12 }}>{m.s3_key}</td>
-                    <td><StatusBadge status={m.status} /></td>
-                    <td style={{ fontSize: 12 }}>{m.openai_model_id || '—'}</td>
-                    <td>{m.created_at ? new Date(m.created_at).toLocaleDateString() : '—'}</td>
-                    <td style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-secondary btn-sm" onClick={() => refreshStatus(m.pk)}><RefreshCw size={12} /></button>
-                      {m.status === 'succeeded' && <button className="btn btn-secondary btn-sm" onClick={() => activateModel(m.pk)}>Activate</button>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          {models.length === 0 ? <div className="empty-state">No fine-tuning jobs yet.</div> : (() => {
+            const activeModelId = models.find(m => m.sk === 'ACTIVE_MODEL')?.openai_model_id;
+            return (
+              <table className="data-table">
+                <thead><tr><th>Job ID</th><th>Training Files</th><th>Status</th><th>Model</th><th>Created</th><th></th></tr></thead>
+                <tbody>
+                  {models.filter(m => m.sk === 'FT_JOB').map(m => (
+                    <tr key={m.pk}>
+                      <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{m.pk?.slice(0, 20)}…</td>
+                      <td style={{ fontSize: 12 }}>
+                        {Array.isArray(m.s3_keys)
+                          ? m.s3_keys.map(k => <div key={k}>{k}</div>)
+                          : (m.s3_key || '—')}
+                      </td>
+                      <td><StatusBadge status={m.status} /></td>
+                      <td style={{ fontSize: 12 }}>{m.openai_model_id || '—'}</td>
+                      <td>{m.created_at ? new Date(m.created_at).toLocaleDateString() : '—'}</td>
+                      <td style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => refreshStatus(m.pk)}><RefreshCw size={12} /></button>
+                        {m.status === 'succeeded' && (
+                          m.openai_model_id && m.openai_model_id === activeModelId
+                            ? <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--success, #16a34a)' }}>✓ Active</span>
+                            : <button className="btn btn-secondary btn-sm" onClick={() => activateModel(m.pk)}>Activate</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            );
+          })()}
         </div>
       </div>
 
@@ -621,18 +640,37 @@ function LLMOpsPage() {
             {formError && <div className="alert alert-error">{formError}</div>}
             <form onSubmit={triggerFinetune} className="login-form">
               <div className="form-group">
-                <label>Training Files <small>(hold Ctrl/Cmd to select multiple)</small></label>
+                <label>Training Files <small>({ftS3Keys.length} selected)</small></label>
                 {ftDocs.length === 0
                   ? <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0' }}>No JSONL files found in S3. Upload a JSONL file via the Knowledge Base tab first.</p>
-                  : <select multiple value={ftS3Keys} onChange={e => setFtS3Keys(Array.from(e.target.selectedOptions, o => o.value))}
-                      style={{ width: '100%', padding: '8px', border: '1.5px solid var(--border)', borderRadius: 6, fontSize: 13, minHeight: 120 }}>
-                      {ftDocs.map(d => <option key={d.s3_key} value={d.s3_key}>{d.filename} <span style={{color:'var(--muted)',fontSize:11}}>({d.s3_key})</span></option>)}
-                    </select>
+                  : <div style={{ border: '1.5px solid var(--border)', borderRadius: 6, padding: '6px 4px', maxHeight: 200, overflowY: 'auto' }}>
+                      {ftDocs.map(d => {
+                        const checked = ftS3Keys.includes(d.s3_key);
+                        return (
+                          <label key={d.s3_key} style={{
+                            display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px',
+                            borderRadius: 5, cursor: 'pointer', fontSize: 13,
+                            background: checked ? 'var(--primary-light, #e8f0fe)' : 'transparent',
+                          }}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => setFtS3Keys(prev =>
+                                checked ? prev.filter(k => k !== d.s3_key) : [...prev, d.s3_key]
+                              )}
+                              style={{ accentColor: 'var(--primary)', width: 15, height: 15 }}
+                            />
+                            <span style={{ fontWeight: checked ? 600 : 400 }}>{d.filename}</span>
+                            <span style={{ color: 'var(--muted)', fontSize: 11, marginLeft: 'auto' }}>{d.s3_key}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                 }
               </div>
               <div className="form-group"><label>Model Suffix <small>(optional)</small></label><input value={ftSuffix} onChange={e => setFtSuffix(e.target.value)} placeholder="e.g. alfalah-v2" /></div>
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
-                <button type="submit" className="btn btn-primary" disabled={submitting || !ftS3Keys.length}>{submitting ? 'Starting…' : 'Start Job'}</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting || !ftS3Keys.length}>{submitting ? 'Starting…' : `Start Job (${ftS3Keys.length} file${ftS3Keys.length !== 1 ? 's' : ''})`}</button>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowFTModal(false)}>Cancel</button>
               </div>
             </form>

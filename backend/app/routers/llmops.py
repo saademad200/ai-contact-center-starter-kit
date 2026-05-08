@@ -88,8 +88,8 @@ async def activate_prompt(pk: str, _: Annotated[dict, Depends(require_admin)]) -
 
 
 class FinetuneRequest(BaseModel):
-    s3_key: str  # Path to cleaned JSONL in S3, e.g. "cleaned/my_data.jsonl"
-    suffix: str = ""  # Optional suffix for the model name
+    s3_keys: list[str]  # One or more S3 paths to .jsonl files to merge and fine-tune on
+    suffix: str = ""   # Optional model name suffix
 
 
 @router.get("/models")
@@ -103,13 +103,17 @@ async def trigger_finetune(
     body: FinetuneRequest,
     _: Annotated[dict, Depends(require_admin)],
 ) -> dict[str, str]:
-    """Downloads JSONL from S3, uploads to OpenAI, and starts a fine-tuning job."""
-    job_id = await start_fine_tuning_job(s3_key=body.s3_key, suffix=body.suffix)
-
+    """Merges one or more JSONL files from S3 and starts a single fine-tuning job."""
+    if not body.s3_keys:
+        raise HTTPException(status_code=422, detail="At least one s3_key is required.")
+    job_id = await start_fine_tuning_job(
+        s3_keys=body.s3_keys,
+        suffix=body.suffix,
+    )
     item: dict[str, Any] = {
         "pk": job_id,
         "sk": "FT_JOB",
-        "s3_key": body.s3_key,
+        "s3_keys": body.s3_keys,
         "status": "pending",
         "created_at": _now_iso(),
     }

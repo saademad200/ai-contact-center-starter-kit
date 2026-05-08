@@ -5,7 +5,9 @@ Model and system prompt are fetched dynamically from DynamoDB registries.
 OpenAI client is wrapped by Langfuse for automatic tracing.
 """
 
+import logging
 import os
+import time
 from typing import Any, cast
 
 import boto3
@@ -83,6 +85,9 @@ async def get_system_prompt() -> str:
     return SYSTEM_PROMPT  # noqa: F821
 
 
+log = logging.getLogger(__name__)
+
+
 async def chat_with_agent(
     conversation_history: list[dict[str, str]],
     user_message: str,
@@ -97,12 +102,16 @@ async def chat_with_agent(
     """
     system_prompt = await get_system_prompt()
     model = await get_active_model()
+    cid = conversation_id or "no-conv-id"
+
+    log.info("[Orchestrator] Request — model=%s conv=%s history_len=%d", model, cid, len(conversation_history))
 
     messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
     messages.extend(conversation_history)
     messages.append({"role": "user", "content": user_message})
 
     try:
+        t0 = time.perf_counter()
         # First LLM call — may include tool call requests
         response = await _get_client().chat.completions.create(
             model=model,
@@ -112,37 +121,60 @@ async def chat_with_agent(
             temperature=0.3,
             metadata={"conversation_id": conversation_id} if conversation_id else {},
         )
+        llm_ms = int((time.perf_counter() - t0) * 1000)
 
         response_message = response.choices[0].message
+        finish_reason = response.choices[0].finish_reason
+        log.info(
+            "[Orchestrator] LLM call 1 — finish_reason=%s tool_calls=%d latency=%dms",
+            finish_reason,
+            len(response_message.tool_calls or []),
+            llm_ms,
+        )
 
         # ── Tool handling loop ────────────────────────────────────────────────
         if response_message.tool_calls:
             messages.append(response_message)  # include assistant's tool call
 
             for tool_call in response_message.tool_calls:
+                tool_name = tool_call.function.name
+                tool_args = tool_call.function.arguments
+                log.info(
+                    "[Orchestrator] ⚙ Tool call — name=%s args=%s conv=%s",
+                    tool_name, tool_args[:120], cid,
+                )
+                t_tool = time.perf_counter()
                 tool_result = await execute_tool(
-                    tool_name=tool_call.function.name,
-                    arguments=tool_call.function.arguments,
+                    tool_name=tool_name,
+                    arguments=tool_args,
+                )
+                tool_ms = int((time.perf_counter() - t_tool) * 1000)
+                log.info(
+                    "[Orchestrator] ✓ Tool result — name=%s result_len=%d latency=%dms",
+                    tool_name, len(tool_result), tool_ms,
                 )
                 messages.append(
                     {
                         "role": "tool",
                         "tool_call_id": tool_call.id,
-                        "name": tool_call.function.name,
+                        "name": tool_name,
                         "content": tool_result,
                     }
                 )
 
             # Second call — produce final answer using tool results
+            t1 = time.perf_counter()
             final_response = await _get_client().chat.completions.create(
                 model=model,
                 messages=messages,
                 temperature=0.3,
             )
+            llm2_ms = int((time.perf_counter() - t1) * 1000)
+            log.info("[Orchestrator] LLM call 2 (synthesis) — latency=%dms", llm2_ms)
             return final_response.choices[0].message.content or ""
 
         return response_message.content or ""
 
     except Exception as e:
-        print(f"[Orchestrator] Error: {e}")
+        log.error("[Orchestrator] Error — %s conv=%s", e, cid)
         return "I'm sorry, I encountered an error processing your request. Please try again."
