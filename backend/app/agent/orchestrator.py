@@ -12,36 +12,40 @@ from typing import Any, cast
 
 import boto3
 import langfuse
-from langfuse.openai import AsyncOpenAI
 
 from app.agent.system_prompt import SYSTEM_PROMPT
 from app.agent.tool_registry import OPENAI_TOOLS, execute_tool
 from app.core.dynamo import get_table
 
+log = logging.getLogger(__name__)
 
-def _init_langfuse() -> None:
-    """Explicitly initialise Langfuse. Reads LANGFUSE_BASE_URL or LANGFUSE_HOST."""
-    import logging
 
-    pk = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
-    sk = os.environ.get("LANGFUSE_SECRET_KEY", "")
-    # Support both LANGFUSE_BASE_URL (.env convention) and LANGFUSE_HOST
-    host = os.environ.get("LANGFUSE_BASE_URL") or os.environ.get("LANGFUSE_HOST") or "https://cloud.langfuse.com"
+def init_langfuse() -> None:
+    """Explicitly initialise Langfuse SDK. Call this AFTER secrets are loaded."""
+    pk   = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
+    sk   = os.environ.get("LANGFUSE_SECRET_KEY", "")
+    host = (
+        os.environ.get("LANGFUSE_BASE_URL")
+        or os.environ.get("LANGFUSE_HOST")
+        or "https://cloud.langfuse.com"
+    )
     if pk and sk:
         langfuse.Langfuse(public_key=pk, secret_key=sk, host=host)
-        logging.getLogger(__name__).info(f"[Langfuse] Initialised — host: {host}")
+        log.info("[Langfuse] Initialised — host: %s", host)
     else:
-        logging.getLogger(__name__).warning(
-            "[Langfuse] Skipped — LANGFUSE_PUBLIC_KEY or LANGFUSE_SECRET_KEY not found in environment."
+        log.warning(
+            "[Langfuse] Skipped — LANGFUSE_PUBLIC_KEY or LANGFUSE_SECRET_KEY "
+            "not found. Traces will NOT be sent."
         )
 
 
-_init_langfuse()
-
-
 def _get_client() -> AsyncOpenAI:
-    """Always build a fresh client so secrets loaded at startup are picked up."""
-    return AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    """Build a fresh Langfuse-wrapped AsyncOpenAI client.
+    Re-importing AsyncOpenAI from langfuse.openai each call ensures it picks up
+    the env vars that were set by Secrets Manager at startup.
+    """
+    from langfuse.openai import AsyncOpenAI as LFAsyncOpenAI  # noqa: PLC0415
+    return LFAsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 
 _dynamodb: Any = None
@@ -67,7 +71,7 @@ async def get_active_model() -> str:
         if item and item.get("openai_model_id"):
             return cast(str, item["openai_model_id"])
     except Exception as e:
-        print(f"[Orchestrator] DynamoDB model lookup failed, using default: {e}")
+        log.warning("[Orchestrator] DynamoDB model lookup failed, using default: %s", e)
     return "gpt-4o-mini"
 
 
@@ -80,12 +84,9 @@ async def get_system_prompt() -> str:
         if item and item.get("content"):
             return cast(str, item["content"])
     except Exception as e:
-        print(f"[Orchestrator] DynamoDB prompt lookup failed, using default: {e}")
+        log.warning("[Orchestrator] DynamoDB prompt lookup failed, using default: %s", e)
 
     return SYSTEM_PROMPT  # noqa: F821
-
-
-log = logging.getLogger(__name__)
 
 
 async def chat_with_agent(

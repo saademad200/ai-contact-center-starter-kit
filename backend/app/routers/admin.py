@@ -39,7 +39,17 @@ class UserResponse(BaseModel):
 
 @router.get("/ratings")
 async def list_ratings(_: Annotated[dict, Depends(require_admin)]) -> dict[str, Any]:
-    items = get_table("response-ratings").scan().get("Items", [])
+    table = get_table("response-ratings")
+    items: list[Any] = []
+    kwargs: dict[str, Any] = {}
+    # DynamoDB scan is limited to 1 MB per call — paginate to get all items
+    while True:
+        result = table.scan(**kwargs)
+        items.extend(result.get("Items", []))
+        last = result.get("LastEvaluatedKey")
+        if not last:
+            break
+        kwargs["ExclusiveStartKey"] = last
     # boto3 returns DynamoDB Number as Decimal — coerce to int for JSON serialisation
     for item in items:
         if "rating" in item:

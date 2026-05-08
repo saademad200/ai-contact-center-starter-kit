@@ -35,6 +35,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting Alfalah GPT API (env=%s)", settings.environment)
+    # Initialise Langfuse AFTER settings has loaded secrets from AWS Secrets Manager
+    from app.agent.orchestrator import init_langfuse  # noqa: PLC0415
+    init_langfuse()
     yield
     logger.info("Shutting down Alfalah GPT API")
 
