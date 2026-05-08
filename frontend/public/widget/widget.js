@@ -45,6 +45,33 @@
     return d.innerHTML;
   }
 
+  // ── Markdown renderer ─────────────────────────────────────
+  // marked is loaded lazily from CDN on first bot message.
+  let _markedReady = false;
+  function ensureMarked(cb) {
+    if (typeof window.marked !== "undefined") { _markedReady = true; cb(); return; }
+    if (_markedReady) { cb(); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/marked/marked.min.js";
+    s.onload = () => {
+      _markedReady = true;
+      window.marked.setOptions({ breaks: true, gfm: true });
+      cb();
+    };
+    s.onerror = () => cb(); // fallback: render as plain text
+    document.head.appendChild(s);
+  }
+
+  function renderMarkdown(el, text) {
+    ensureMarked(() => {
+      if (typeof window.marked !== "undefined") {
+        el.innerHTML = window.marked.parse(text);
+      } else {
+        el.innerHTML = escapeHtml(text).replace(/\n/g, "<br>");
+      }
+    });
+  }
+
   // ── DOM refs (set after inject) ───────────────────────────
   let $window, $messages, $input, $send, $typing, $offline, $launcher, $badge;
 
@@ -125,7 +152,13 @@
 
     const bubble = document.createElement("div");
     bubble.className = "alf-bubble";
-    bubble.innerHTML = escapeHtml(text).replace(/\n/g, "<br>");
+    if (role === "bot") {
+      // Render bot messages as markdown
+      bubble.innerHTML = escapeHtml(text).replace(/\n/g, "<br>"); // initial safe render
+      renderMarkdown(bubble, text);                                // upgrade async
+    } else {
+      bubble.innerHTML = escapeHtml(text).replace(/\n/g, "<br>");
+    }
     wrap.appendChild(bubble);
 
     const ts = document.createElement("span");

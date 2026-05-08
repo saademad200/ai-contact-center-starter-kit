@@ -40,6 +40,10 @@ class UserResponse(BaseModel):
 @router.get("/ratings")
 async def list_ratings(_: Annotated[dict, Depends(require_admin)]) -> dict[str, Any]:
     items = get_table("response-ratings").scan().get("Items", [])
+    # boto3 returns DynamoDB Number as Decimal — coerce to int for JSON serialisation
+    for item in items:
+        if "rating" in item:
+            item["rating"] = int(item["rating"])
     return {"ratings": items}
 
 
@@ -67,7 +71,7 @@ async def get_dashboard_stats(_: Annotated[dict, Depends(require_admin)]) -> dic
     return {
         "total_conversations": len(convs),
         "open_tickets": sum(1 for t in tickets if t.get("status") == "open"),
-        "total_documents": len(docs),
+        "total_documents": sum(1 for d in docs if d.get("status") != "deleted"),
         "active_model": (model_item or {}).get("openai_model_id", "gpt-4o-mini"),
         "active_prompt": (prompt_item or {}).get("content", "No active prompt set."),
     }

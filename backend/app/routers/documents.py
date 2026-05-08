@@ -98,7 +98,8 @@ async def upload_document(
 @router.get("")
 async def list_documents(_: Annotated[dict, Depends(require_admin)]) -> dict[str, Any]:
     result = get_table("documents").scan()
-    return {"documents": result.get("Items", [])}
+    items = [i for i in result.get("Items", []) if i.get("status") != "deleted"]
+    return {"documents": items}
 
 
 @router.get("/s3-jsonl")

@@ -692,8 +692,8 @@ function QualityPage() {
       .catch(e => { if (e.message === 'Unauthorized') logout(); else setError(e.message); });
   }, [token]);
 
-  const thumbsUp   = ratings.filter(r => r.rating === 1).length;
-  const thumbsDown = ratings.filter(r => r.rating === -1).length;
+  const thumbsUp   = ratings.filter(r => Number(r.rating) === 1).length;
+  const thumbsDown = ratings.filter(r => Number(r.rating) === -1).length;
   const total      = ratings.length;
   const score      = total ? Math.round((thumbsUp / total) * 100) : 0;
 
@@ -714,7 +714,7 @@ function QualityPage() {
               <tbody>
                 {[...ratings].sort((a, b) => b.created_at?.localeCompare(a.created_at || '') || 0).map((r, i) => (
                   <tr key={i}>
-                    <td style={{ fontSize: 20 }}>{r.rating === 1 ? '👍' : '👎'}</td>
+                    <td style={{ fontSize: 20 }}>{Number(r.rating) === 1 ? '👍' : '👎'}</td>
                     <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{r.pk?.replace('RATING#', '').slice(0, 18)}…</td>
                     <td style={{ color: 'var(--muted)', fontSize: 13 }}>{r.feedback || '—'}</td>
                     <td>{r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}</td>
