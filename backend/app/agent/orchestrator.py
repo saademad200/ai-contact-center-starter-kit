@@ -12,6 +12,7 @@ import boto3
 import langfuse
 from langfuse.openai import AsyncOpenAI
 
+from app.agent.system_prompt import SYSTEM_PROMPT
 from app.agent.tool_registry import OPENAI_TOOLS, execute_tool
 from app.core.dynamo import get_table
 
@@ -79,7 +80,7 @@ async def get_system_prompt() -> str:
     except Exception as e:
         print(f"[Orchestrator] DynamoDB prompt lookup failed, using default: {e}")
 
-    return SYSTEM_PROMPT
+    return SYSTEM_PROMPT  # noqa: F821
 
 
 async def chat_with_agent(
