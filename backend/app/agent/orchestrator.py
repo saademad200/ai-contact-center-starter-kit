@@ -8,6 +8,7 @@ OpenAI client is wrapped by Langfuse for automatic tracing.
 import logging
 import os
 import time
+from collections.abc import AsyncGenerator
 from typing import Any, cast
 
 import boto3
@@ -85,9 +86,6 @@ async def get_system_prompt() -> str:
     return SYSTEM_PROMPT  # noqa: F821
 
 
-from collections.abc import AsyncGenerator
-
-
 async def chat_with_agent(
     conversation_history: list[dict[str, str]],
     user_message: str,
@@ -146,8 +144,15 @@ async def chat_with_agent(
                 t_tool = time.perf_counter()
                 tool_result = await execute_tool(tool_name=tool_name, arguments=tool_args)
                 tool_ms = int((time.perf_counter() - t_tool) * 1000)
-                log.info("[Orchestrator] ✓ Tool result — name=%s result_len=%d latency=%dms", tool_name, len(tool_result), tool_ms)
-                messages.append({"role": "tool", "tool_call_id": tool_call.id, "name": tool_name, "content": tool_result})
+                log.info(
+                    "[Orchestrator] ✓ Tool result — name=%s result_len=%d latency=%dms",
+                    tool_name,
+                    len(tool_result),
+                    tool_ms,
+                )
+                messages.append(
+                    {"role": "tool", "tool_call_id": tool_call.id, "name": tool_name, "content": tool_result}
+                )
 
             # Second call — stream the synthesis answer token-by-token
             t1 = time.perf_counter()
@@ -161,7 +166,9 @@ async def chat_with_agent(
                 delta = chunk.choices[0].delta.content if chunk.choices else None
                 if delta:
                     yield delta
-            log.info("[Orchestrator] LLM call 2 (synthesis streamed) — latency=%dms", int((time.perf_counter() - t1) * 1000))
+            log.info(
+                "[Orchestrator] LLM call 2 (synthesis streamed) — latency=%dms", int((time.perf_counter() - t1) * 1000)
+            )
 
         else:
             # No tool calls — direct answer, yield as single chunk
