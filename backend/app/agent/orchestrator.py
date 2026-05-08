@@ -22,29 +22,25 @@ log = logging.getLogger(__name__)
 
 def init_langfuse() -> None:
     """Explicitly initialise Langfuse SDK. Call this AFTER secrets are loaded."""
-    pk   = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
-    sk   = os.environ.get("LANGFUSE_SECRET_KEY", "")
-    host = (
-        os.environ.get("LANGFUSE_BASE_URL")
-        or os.environ.get("LANGFUSE_HOST")
-        or "https://cloud.langfuse.com"
-    )
+    pk = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
+    sk = os.environ.get("LANGFUSE_SECRET_KEY", "")
+    host = os.environ.get("LANGFUSE_BASE_URL") or os.environ.get("LANGFUSE_HOST") or "https://cloud.langfuse.com"
     if pk and sk:
         langfuse.Langfuse(public_key=pk, secret_key=sk, host=host)
         log.info("[Langfuse] Initialised — host: %s", host)
     else:
         log.warning(
-            "[Langfuse] Skipped — LANGFUSE_PUBLIC_KEY or LANGFUSE_SECRET_KEY "
-            "not found. Traces will NOT be sent."
+            "[Langfuse] Skipped — LANGFUSE_PUBLIC_KEY or LANGFUSE_SECRET_KEY not found. Traces will NOT be sent."
         )
 
 
-def _get_client() -> AsyncOpenAI:
+def _get_client() -> Any:
     """Build a fresh Langfuse-wrapped AsyncOpenAI client.
     Re-importing AsyncOpenAI from langfuse.openai each call ensures it picks up
     the env vars that were set by Secrets Manager at startup.
     """
     from langfuse.openai import AsyncOpenAI as LFAsyncOpenAI  # noqa: PLC0415
+
     return LFAsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 
@@ -142,7 +138,9 @@ async def chat_with_agent(
                 tool_args = tool_call.function.arguments
                 log.info(
                     "[Orchestrator] ⚙ Tool call — name=%s args=%s conv=%s",
-                    tool_name, tool_args[:120], cid,
+                    tool_name,
+                    tool_args[:120],
+                    cid,
                 )
                 t_tool = time.perf_counter()
                 tool_result = await execute_tool(
@@ -152,7 +150,9 @@ async def chat_with_agent(
                 tool_ms = int((time.perf_counter() - t_tool) * 1000)
                 log.info(
                     "[Orchestrator] ✓ Tool result — name=%s result_len=%d latency=%dms",
-                    tool_name, len(tool_result), tool_ms,
+                    tool_name,
+                    len(tool_result),
+                    tool_ms,
                 )
                 messages.append(
                     {
