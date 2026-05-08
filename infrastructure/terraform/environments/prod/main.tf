@@ -102,6 +102,7 @@ module "ecs_api" {
   region                      = var.region
   service_name_suffix         = "api"
   cluster_id                  = module.ecs_cluster.cluster_id
+  cluster_name                = module.ecs_cluster.cluster_name
   ecr_repository_url          = module.ecr.api_repository_url
   ecs_task_execution_role_arn = module.iam.ecs_task_execution_role_arn
   ecs_task_iam_role_arn       = module.iam.ecs_task_iam_role_arn
@@ -114,6 +115,14 @@ module "ecs_api" {
   container_port              = 8000
   efs_file_system_id          = module.efs.file_system_id
   efs_access_point_id         = module.efs.access_point_id
+
+  # Autoscaling
+  enable_autoscaling        = true
+  autoscaling_min_capacity  = 1
+  autoscaling_max_capacity  = 4
+  autoscaling_cpu_target    = 60
+  autoscaling_memory_target = 70
+
   extra_env_vars = [
     { name = "S3_BUCKET_NAME", value = var.s3_bucket_name },
     { name = "HF_HOME",        value = "/app/.cache/huggingface" },

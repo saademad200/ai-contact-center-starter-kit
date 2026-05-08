@@ -79,3 +79,41 @@ variable "extra_env_vars" {
   }))
   default = []
 }
+
+# ── Autoscaling ───────────────────────────────────────────────────────────────
+
+variable "cluster_name" {
+  description = "ECS cluster name (required when enable_autoscaling = true)"
+  type        = string
+  default     = ""
+}
+
+variable "enable_autoscaling" {
+  description = "Enable Application Auto Scaling for this ECS service"
+  type        = bool
+  default     = false
+}
+
+variable "autoscaling_min_capacity" {
+  description = "Minimum number of tasks"
+  type        = number
+  default     = 1
+}
+
+variable "autoscaling_max_capacity" {
+  description = "Maximum number of tasks"
+  type        = number
+  default     = 4
+}
+
+variable "autoscaling_cpu_target" {
+  description = "Target CPU utilisation % to trigger scaling"
+  type        = number
+  default     = 60
+}
+
+variable "autoscaling_memory_target" {
+  description = "Target memory utilisation % to trigger scaling"
+  type        = number
+  default     = 70
+}
