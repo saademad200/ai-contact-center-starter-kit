@@ -84,11 +84,15 @@ async def websocket_chat(websocket: WebSocket, conversation_id: str) -> None:
             _save_message(conversation_id, "user", user_message)
 
             try:
-                reply = await chat_with_agent(
+                reply_chunks: list[str] = []
+                async for chunk in chat_with_agent(
                     conversation_history=history,
                     user_message=user_message,
                     conversation_id=conversation_id,
-                )
+                ):
+                    await websocket.send_text(chunk)
+                    reply_chunks.append(chunk)
+                reply = "".join(reply_chunks)
             except Exception as e:
                 reply = "I'm sorry, I encountered an error. Please try again."
                 print(f"[WS] Agent error: {e}")

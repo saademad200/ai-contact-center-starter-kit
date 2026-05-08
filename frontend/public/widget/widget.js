@@ -45,31 +45,29 @@
     return d.innerHTML;
   }
 
-  // ── Markdown renderer ─────────────────────────────────────
-  // marked is loaded lazily from CDN on first bot message.
-  let _markedReady = false;
-  function ensureMarked(cb) {
-    if (typeof window.marked !== "undefined") { _markedReady = true; cb(); return; }
-    if (_markedReady) { cb(); return; }
-    const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/marked/marked.min.js";
-    s.onload = () => {
-      _markedReady = true;
-      window.marked.setOptions({ breaks: true, gfm: true });
-      cb();
-    };
-    s.onerror = () => cb(); // fallback: render as plain text
-    document.head.appendChild(s);
-  }
-
-  function renderMarkdown(el, text) {
-    ensureMarked(() => {
-      if (typeof window.marked !== "undefined") {
-        el.innerHTML = window.marked.parse(text);
-      } else {
-        el.innerHTML = escapeHtml(text).replace(/\n/g, "<br>");
-      }
-    });
+  // ── Minimal inline markdown renderer (no external deps) ──────────────
+  function miniMd(text) {
+    return text
+      // Bold **text** or __text__
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/__(.+?)__/g, "<strong>$1</strong>")
+      // Italic *text* or _text_
+      .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+      .replace(/_([^_]+)_/g, "<em>$1</em>")
+      // Code `text`
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      // ### H3 / ## H2 / # H1
+      .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+      .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+      .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+      // Unordered list items: lines starting with - or *
+      .replace(/^[\-\*] (.+)$/gm, "<li>$1</li>")
+      // Wrap consecutive <li> blocks in <ul>
+      .replace(/(<li>.*<\/li>\n?)+/g, (m) => "<ul>" + m + "</ul>")
+      // Horizontal rule
+      .replace(/^---+$/gm, "<hr>")
+      // Newlines to <br> (skip inside block elements)
+      .replace(/\n(?!<\/?(?:ul|li|h[123]|hr))/g, "<br>");
   }
 
   // ── DOM refs (set after inject) ───────────────────────────
@@ -153,9 +151,7 @@
     const bubble = document.createElement("div");
     bubble.className = "alf-bubble";
     if (role === "bot") {
-      // Render bot messages as markdown
-      bubble.innerHTML = escapeHtml(text).replace(/\n/g, "<br>"); // initial safe render
-      renderMarkdown(bubble, text);                                // upgrade async
+      bubble.innerHTML = miniMd(text);
     } else {
       bubble.innerHTML = escapeHtml(text).replace(/\n/g, "<br>");
     }
@@ -234,29 +230,92 @@
       $send.disabled = false;
     };
 
-    ws.onmessage = (e) => {
-      let text = e.data;
-      let toolIndicator = null;
+    // Streaming state — one active bubble accumulates chunks
+    let _streamBubble = null;
+    let _streamText   = "";
+    let _streamSk     = null;
+    let _toolIndicator = null;
 
-      // Detect tool call hints embedded in message (e.g. "[TOOL:get_fund_nav]")
-      const toolMatch = text.match(/^\[TOOL:([^\]]+)\]/);
+    ws.onmessage = (e) => {
+      const data = e.data;
+
+      // ── Tool hint: [TOOL:name] — show indicator, start new stream ──────
+      const toolMatch = data.match(/^\[TOOL:([^\]]+)\]$/);
       if (toolMatch) {
         const toolName = toolMatch[1].replace(/_/g, " ");
-        toolIndicator = appendToolIndicator(`🔍 ${toolName}…`);
-        text = text.replace(toolMatch[0], "").trim();
+        if (_toolIndicator) _toolIndicator.remove();
+        _toolIndicator = appendToolIndicator(`🔍 Looking up ${toolName}…`);
+        // Reset stream so the synthesis answer starts a fresh bubble
+        _streamBubble = null;
+        _streamText   = "";
+        _streamSk     = null;
+        return;
       }
 
+      // ── Text chunk — append to the active streaming bubble ─────────────
       showTyping(false);
-      if (toolIndicator) toolIndicator.remove();
+      if (_toolIndicator) { _toolIndicator.remove(); _toolIndicator = null; }
 
-      const sk = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
-      appendMessage("bot", text, sk);
+      if (!_streamBubble) {
+        // First chunk: create the message wrapper + bubble
+        _streamSk = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+        const wrap = document.createElement("div");
+        wrap.className = "alf-msg alf-bot";
+        _streamBubble = document.createElement("div");
+        _streamBubble.className = "alf-bubble";
+        wrap.appendChild(_streamBubble);
 
-      // Show badge if window is closed
-      if ($window.classList.contains("alf-hidden")) {
-        $badge.style.display = "flex";
-        $badge.textContent = (parseInt($badge.textContent || "0") + 1).toString();
+        const ts = document.createElement("span");
+        ts.className = "alf-timestamp";
+        ts.textContent = formatTime(new Date());
+        wrap.appendChild(ts);
+
+        // Rating buttons added after stream ends (below)
+        wrap._ratingPending = true;
+        wrap._sk = _streamSk;
+
+        $messages.insertBefore(wrap, $typing);
       }
+
+      _streamText += data;
+      _streamBubble.innerHTML = miniMd(_streamText);
+      $messages.scrollTop = $messages.scrollHeight;
+
+      // Detect end-of-stream: WebSocket sends one message per token;
+      // we consider the stream "done" when we receive a chunk ending in
+      // punctuation + newline, OR after a short idle timer.
+      clearTimeout(_streamBubble._endTimer);
+      _streamBubble._endTimer = setTimeout(() => {
+        // Re-render final markdown cleanly
+        _streamBubble.innerHTML = miniMd(_streamText);
+
+        // Add rating buttons now that message is complete
+        const wrap = _streamBubble.parentElement;
+        if (wrap && wrap._ratingPending) {
+          wrap._ratingPending = false;
+          const rating = document.createElement("div");
+          rating.className = "alf-rating";
+          rating.innerHTML = `
+            <button data-sk="${wrap._sk}" data-val="1" aria-label="Thumbs up">👍</button>
+            <button data-sk="${wrap._sk}" data-val="-1" aria-label="Thumbs down">👎</button>
+          `;
+          rating.querySelectorAll("button").forEach((btn) => {
+            btn.addEventListener("click", () => submitRating(wrap._sk, parseInt(btn.dataset.val), rating));
+          });
+          wrap.appendChild(rating);
+        }
+
+        // Badge
+        if ($window.classList.contains("alf-hidden")) {
+          $badge.style.display = "flex";
+          $badge.textContent = (parseInt($badge.textContent || "0") + 1).toString();
+        }
+
+        // Reset for next message
+        _streamBubble = null;
+        _streamText   = "";
+        _streamSk     = null;
+      }, 300); // 300ms silence = message complete
     };
 
     ws.onerror = () => setOffline(true);
