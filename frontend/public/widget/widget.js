@@ -239,30 +239,67 @@
     ws.onmessage = (e) => {
       const data = e.data;
 
-      // ── Tool hint: [TOOL:name] — show indicator, start new stream ──────
+      // ── Tool hint ────────────────────────────────────────────────────────
       const toolMatch = data.match(/^\[TOOL:([^\]]+)\]$/);
       if (toolMatch) {
         const toolName = toolMatch[1].replace(/_/g, " ");
         if (_toolIndicator) _toolIndicator.remove();
         _toolIndicator = appendToolIndicator(`🔍 Looking up ${toolName}…`);
-        // Reset stream so the synthesis answer starts a fresh bubble
         _streamBubble = null;
         _streamText   = "";
         _streamSk     = null;
         return;
       }
 
-      // ── Text chunk — append to the active streaming bubble ─────────────
+      // ── Stream end sentinel — finalise bubble ────────────────────────────
+      if (data === "[STREAM_END]") {
+        if (_toolIndicator) { _toolIndicator.remove(); _toolIndicator = null; }
+        if (_streamBubble) {
+          // Apply markdown to the complete accumulated text
+          _streamBubble.innerHTML = miniMd(_streamText);
+          $messages.scrollTop = $messages.scrollHeight;
+
+          // Add rating buttons
+          const wrap = _streamBubble.parentElement;
+          if (wrap && wrap._ratingPending) {
+            wrap._ratingPending = false;
+            const rating = document.createElement("div");
+            rating.className = "alf-rating";
+            rating.innerHTML = `
+              <button data-sk="${wrap._sk}" data-val="1" aria-label="Thumbs up">👍</button>
+              <button data-sk="${wrap._sk}" data-val="-1" aria-label="Thumbs down">👎</button>
+            `;
+            rating.querySelectorAll("button").forEach((btn) => {
+              btn.addEventListener("click", () => submitRating(wrap._sk, parseInt(btn.dataset.val), rating));
+            });
+            wrap.appendChild(rating);
+          }
+
+          // Badge when window is closed
+          if ($window.classList.contains("alf-hidden")) {
+            $badge.style.display = "flex";
+            $badge.textContent = (parseInt($badge.textContent || "0") + 1).toString();
+          }
+
+          _streamBubble = null;
+          _streamText   = "";
+          _streamSk     = null;
+        }
+        // Re-enable send
+        $send.disabled = ws.readyState !== WebSocket.OPEN;
+        return;
+      }
+
+      // ── Text chunk — accumulate raw text, show as plain during streaming ─
       showTyping(false);
       if (_toolIndicator) { _toolIndicator.remove(); _toolIndicator = null; }
 
       if (!_streamBubble) {
-        // First chunk: create the message wrapper + bubble
         _streamSk = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
         const wrap = document.createElement("div");
         wrap.className = "alf-msg alf-bot";
         _streamBubble = document.createElement("div");
-        _streamBubble.className = "alf-bubble";
+        _streamBubble.className = "alf-bubble alf-streaming";
         wrap.appendChild(_streamBubble);
 
         const ts = document.createElement("span");
@@ -270,52 +307,15 @@
         ts.textContent = formatTime(new Date());
         wrap.appendChild(ts);
 
-        // Rating buttons added after stream ends (below)
         wrap._ratingPending = true;
         wrap._sk = _streamSk;
-
         $messages.insertBefore(wrap, $typing);
       }
 
       _streamText += data;
-      _streamBubble.innerHTML = miniMd(_streamText);
+      // Show raw text while streaming (markdown will be applied at STREAM_END)
+      _streamBubble.textContent = _streamText;
       $messages.scrollTop = $messages.scrollHeight;
-
-      // Detect end-of-stream: WebSocket sends one message per token;
-      // we consider the stream "done" when we receive a chunk ending in
-      // punctuation + newline, OR after a short idle timer.
-      clearTimeout(_streamBubble._endTimer);
-      _streamBubble._endTimer = setTimeout(() => {
-        // Re-render final markdown cleanly
-        _streamBubble.innerHTML = miniMd(_streamText);
-
-        // Add rating buttons now that message is complete
-        const wrap = _streamBubble.parentElement;
-        if (wrap && wrap._ratingPending) {
-          wrap._ratingPending = false;
-          const rating = document.createElement("div");
-          rating.className = "alf-rating";
-          rating.innerHTML = `
-            <button data-sk="${wrap._sk}" data-val="1" aria-label="Thumbs up">👍</button>
-            <button data-sk="${wrap._sk}" data-val="-1" aria-label="Thumbs down">👎</button>
-          `;
-          rating.querySelectorAll("button").forEach((btn) => {
-            btn.addEventListener("click", () => submitRating(wrap._sk, parseInt(btn.dataset.val), rating));
-          });
-          wrap.appendChild(rating);
-        }
-
-        // Badge
-        if ($window.classList.contains("alf-hidden")) {
-          $badge.style.display = "flex";
-          $badge.textContent = (parseInt($badge.textContent || "0") + 1).toString();
-        }
-
-        // Reset for next message
-        _streamBubble = null;
-        _streamText   = "";
-        _streamSk     = null;
-      }, 300); // 300ms silence = message complete
     };
 
     ws.onerror = () => setOffline(true);

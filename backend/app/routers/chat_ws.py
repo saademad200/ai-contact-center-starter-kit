@@ -83,6 +83,7 @@ async def websocket_chat(websocket: WebSocket, conversation_id: str) -> None:
             history = _load_history(conversation_id)
             _save_message(conversation_id, "user", user_message)
 
+            reply = "I'm sorry, I encountered an error. Please try again."
             try:
                 reply_chunks: list[str] = []
                 async for chunk in chat_with_agent(
@@ -92,14 +93,17 @@ async def websocket_chat(websocket: WebSocket, conversation_id: str) -> None:
                 ):
                     await websocket.send_text(chunk)
                     reply_chunks.append(chunk)
-                reply = "".join(reply_chunks)
+                reply = "".join(
+                    c for c in reply_chunks if not c.startswith("[TOOL:")
+                )
             except Exception as e:
-                reply = "I'm sorry, I encountered an error. Please try again."
+                await websocket.send_text(reply)
                 print(f"[WS] Agent error: {e}")
 
-            _save_message(conversation_id, "assistant", reply)
+            # Sentinel — tells the widget the stream is finished
+            await websocket.send_text("[STREAM_END]")
 
-            await websocket.send_text(reply)
+            _save_message(conversation_id, "assistant", reply)
 
     except WebSocketDisconnect:
         print(f"[WS] Disconnected: {conversation_id}")
