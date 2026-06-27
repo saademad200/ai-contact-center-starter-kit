@@ -33,6 +33,8 @@ It is designed to be **domain-agnostic**: the financial services example (mutual
 
 ## Architecture
 
+![Serverless AI Contact Center Architecture (AWS)](docs/assets/architecture_diagram.png)
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        Frontend                             │
@@ -68,6 +70,16 @@ It is designed to be **domain-agnostic**: the financial services example (mutual
 │  GitHub Actions OIDC CI/CD  │  Terraform modules          │
 └───────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Screenshots
+
+### Web Chat Widget
+![Embeddable Web Chat Widget](docs/assets/chat_widget_screenshot.png)
+
+### LLMOps & Admin Dashboard
+![LLMOps & Admin Dashboard](docs/assets/admin_dashboard_screenshot.png)
 
 ---
 
