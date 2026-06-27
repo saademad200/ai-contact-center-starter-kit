@@ -57,3 +57,6 @@ node_modules/
 
 # ── Local Claude context (personal, not for repo) ────
 CLAUDE.LOCAL.MD
+
+# ── Personal research / autoresearch log (not for public repo) ───
+RESEARCH.md
