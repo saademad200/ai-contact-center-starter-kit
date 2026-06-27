@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # AWS
     aws_region: str = "us-east-1"
-    s3_bucket_name: str = "alfalah-ai-training-data"
+    s3_bucket_name: str = "ai-contact-center-training-data"  # override via S3_BUCKET_NAME env var
     dynamodb_endpoint_url: str | None = None  # Set for local dev only
 
     # OpenAI
@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     def load_aws_secrets(self) -> "Settings":
         """Load secrets from AWS Secrets Manager in staging/production."""
         if self.environment in ["staging", "prod"]:
-            secret_name = f"alfalah-ai-{self.environment}/api"
+            secret_name = f"ai-contact-center-{self.environment}/api"  # override by setting AWS_SECRET_NAME env var if needed
             try:
                 client = boto3.client("secretsmanager", region_name=self.aws_region)
                 response = client.get_secret_value(SecretId=secret_name)

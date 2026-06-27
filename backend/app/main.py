@@ -21,6 +21,7 @@ from app.routers import (
     admin,
     auth,
     chat_ws,
+    chroma,
     conversations,
     documents,
     llmops,
@@ -34,19 +35,19 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    logger.info("Starting Alfalah GPT API (env=%s)", settings.environment)
+    logger.info("Starting AI Contact Center API (env=%s)", settings.environment)
     # Initialise Langfuse AFTER settings has loaded secrets from AWS Secrets Manager
     from app.agent.orchestrator import init_langfuse  # noqa: PLC0415
 
     init_langfuse()
     yield
-    logger.info("Shutting down Alfalah GPT API")
+    logger.info("Shutting down AI Contact Center API")
 
 
 app = FastAPI(
-    title="Alfalah GPT API",
-    description="AI-powered customer support for Alfalah Investments",
-    version="1.0.0",
+    title="AI Contact Center API",
+    description="Production-grade AI contact center: FastAPI + OpenAI tool calling + RAG + AWS",
+    version="0.1.0",
     lifespan=lifespan,
 )
 
@@ -68,6 +69,7 @@ app.include_router(documents.router, prefix=API_PREFIX)
 app.include_router(ratings.router, prefix=API_PREFIX)
 app.include_router(tickets.router, prefix=API_PREFIX)
 app.include_router(llmops.router, prefix=API_PREFIX)
+app.include_router(chroma.router, prefix=API_PREFIX)
 app.include_router(chat_ws.router)  # mounts at /ws/chat/{conversation_id}
 
 
