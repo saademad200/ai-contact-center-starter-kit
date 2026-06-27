@@ -1,4 +1,4 @@
-# Project Plan: Alfalah Investments AI Contact Centre
+# Project Plan: Alfalah Investments AI Contact Center
 
 > A production-ready, cost-optimized AI customer service system designed to mimic the scope of "Meezan GPT" for **Alfalah Investments**. It uses **OpenAI (gpt-4o-mini)**, extensive tool calling, and automated fine-tuning pipelines.
 

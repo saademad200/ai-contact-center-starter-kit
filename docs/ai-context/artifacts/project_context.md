@@ -1,4 +1,4 @@
-# Alfalah AI Contact Centre — Project Knowledge Item
+# Alfalah AI Contact Center — Project Knowledge Item
 
 ## Project Location
 `/home/saad/Documents/Code/Devops/Project/`

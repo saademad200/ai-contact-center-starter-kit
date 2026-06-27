@@ -1,5 +1,5 @@
 # Architecture Decision Records (ADR)
-## Alfalah Investments AI Contact Centre
+## Alfalah Investments AI Contact Center
 
 This document captures the key design decisions, scope changes, and rationale from the project's initial planning sessions. It is intended to give new team members full context on *why* the system is built the way it is.
 

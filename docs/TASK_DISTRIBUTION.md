@@ -1,6 +1,6 @@
 # Task Distribution
 
-> **Project:** Alfalah Investments AI Contact Centre
+> **Project:** Alfalah Investments AI Contact Center
 > **Reference:** [`PROJECT_PLAN.md`](PROJECT_PLAN.md)
 > **Updated Scope:** OpenAI Fine-Tuning, AWS CodeDeploy (Blue/Green), AWS Secrets Manager, S3+Lambda Pipeline, Langfuse, Live Web Scraping.
 
