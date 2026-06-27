@@ -106,7 +106,10 @@ def lambda_handler(event: dict, context: object) -> dict:
 
         if not pairs:
             print("No Q/A pairs extracted — skipping upload.")
-            return {"statusCode": 200, "body": json.dumps(f"No pairs extracted from {key}")}
+            return {
+                "statusCode": 200,
+                "body": json.dumps(f"No pairs extracted from {key}"),
+            }
 
         # 4. Format to JSONL
         jsonl_lines = [to_jsonl_entry(p["user"], p["assistant"]) for p in pairs]
@@ -125,7 +128,10 @@ def lambda_handler(event: dict, context: object) -> dict:
         )
         print(f"Uploaded {len(jsonl_lines)} entries to s3://{bucket}/{cleaned_key}")
 
-        return {"statusCode": 200, "body": json.dumps(f"Processed {key} → {cleaned_key}")}
+        return {
+            "statusCode": 200,
+            "body": json.dumps(f"Processed {key} → {cleaned_key}"),
+        }
 
     except Exception as e:
         print(f"Error processing s3://{bucket}/{key}: {e}")

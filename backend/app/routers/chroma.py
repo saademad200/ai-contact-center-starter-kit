@@ -23,6 +23,7 @@ router = APIRouter(prefix="/chroma", tags=["chroma"])
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _collection_info() -> dict[str, Any]:
     """Return raw collection metadata from ChromaDB."""
     col = get_collection()
@@ -35,6 +36,7 @@ def _collection_info() -> dict[str, Any]:
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
+
 
 @router.get("/stats")
 def chroma_stats(
@@ -62,10 +64,7 @@ def chroma_stats(
 
     return {
         "collection": info,
-        "sources": [
-            {"source": src, "chunks": count}
-            for src, count in sorted(source_counts.items())
-        ],
+        "sources": [{"source": src, "chunks": count} for src, count in sorted(source_counts.items())],
         "total_sources": len(source_counts),
     }
 

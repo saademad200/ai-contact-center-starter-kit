@@ -44,7 +44,8 @@ class Settings(BaseSettings):
     def load_aws_secrets(self) -> "Settings":
         """Load secrets from AWS Secrets Manager in staging/production."""
         if self.environment in ["staging", "prod"]:
-            secret_name = f"ai-contact-center-{self.environment}/api"  # override by setting AWS_SECRET_NAME env var if needed
+            # Override by setting AWS_SECRET_NAME env var if needed
+            secret_name = f"ai-contact-center-{self.environment}/api"
             try:
                 client = boto3.client("secretsmanager", region_name=self.aws_region)
                 response = client.get_secret_value(SecretId=secret_name)
