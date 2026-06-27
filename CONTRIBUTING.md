@@ -1,6 +1,8 @@
 # Contributing to AI Contact Center Starter Kit
 
-Thank you for your interest in contributing! This project is an open-source starter kit — contributions that make it more useful, more adaptable, or better documented are all valued.
+Thank you for your interest in contributing! This project is an open-source
+starter kit — contributions that make it more useful, more adaptable, or
+better documented are all valued.
 
 ---
 
@@ -19,7 +21,8 @@ Thank you for your interest in contributing! This project is an open-source star
 
 ## Code of Conduct
 
-Be respectful. Constructive criticism is welcome; personal attacks are not. We follow the [Contributor Covenant](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
+Be respectful. Constructive criticism is welcome; personal attacks are not. We
+follow the [Contributor Covenant](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
 
 ---
 
@@ -39,7 +42,9 @@ Be respectful. Constructive criticism is welcome; personal attacks are not. We f
 
 ### Good First Issues
 
-Issues labeled [`good first issue`](https://github.com/saademad200/AI-Contact-Center/issues?q=label%3A%22good+first+issue%22) are scoped to be approachable without deep knowledge of the whole codebase. Great starting points.
+Issues labeled [`good first issue`](https://github.com/saademad200/AI-Contact-Center/issues?q=label%3A%22good+first+issue%22)
+are scoped to be approachable without deep knowledge of the whole codebase.
+Great starting points.
 
 ---
 
@@ -127,7 +132,8 @@ make test-unit        # unit tests only (fast, no AWS)
 make test-integration # integration tests (requires local DynamoDB)
 ```
 
-New tool functions in `backend/app/agent/tools/` should have corresponding unit tests in `backend/tests/unit/`.
+New tool functions in `backend/app/agent/tools/` should have corresponding
+unit tests in `backend/tests/unit/`.
 
 ---
 

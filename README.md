@@ -1,6 +1,9 @@
 # AI Contact Center Starter Kit
 
-> A production-grade, reusable open-source template for building AI-powered contact center systems using **FastAPI**, **OpenAI tool calling**, **RAG**, **live data tools**, **LLM observability**, **Docker**, **Terraform**, and **AWS deployment**.
+> A production-grade, reusable open-source template for building AI-powered
+> contact center systems using **FastAPI**, **OpenAI tool calling**, **RAG**,
+> **live data tools**, **LLM observability**, **Docker**, **Terraform**, and
+> **AWS deployment**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-brightgreen.svg)](https://python.org)
@@ -12,9 +15,17 @@
 
 ## What Is This?
 
-This starter kit gives you a **complete, deployable AI contact center backend** out of the box. Fork it, configure your domain and data sources, and ship a production-ready AI support agent — without building the scaffolding from scratch.
+This starter kit gives you a **complete, deployable AI contact center backend**
+out of the box. Fork it, configure your domain and data sources, and ship a
+production-ready AI support agent — without building the scaffolding from
+scratch.
 
-It is designed to be **domain-agnostic**: the financial services example (mutual fund NAVs, fund performance, investment advice) shows how the pattern works, but the same architecture applies to **e-commerce**, **SaaS support**, **healthcare portals**, **government services**, or any other vertical where you need an AI agent that calls live APIs, searches a knowledge base, and escalates to humans.
+It is designed to be **domain-agnostic**: the financial services example
+(mutual fund NAVs, fund performance, investment advice) shows how the pattern
+works, but the same architecture applies to **e-commerce**, **SaaS support**,
+**healthcare portals**, **government services**, or any other vertical where
+you need an AI agent that calls live APIs, searches a knowledge base, and
+escalates to humans.
 
 ---
 
@@ -155,7 +166,9 @@ git push origin main   # triggers CI → ECR build → CodeDeploy Blue/Green
 
 ## Agent Tools
 
-The agent uses **OpenAI tool calling** to invoke the right function based on user intent. All tools are registered in `backend/app/agent/tool_registry.py` and easy to extend.
+The agent uses **OpenAI tool calling** to invoke the right function based on
+user intent. All tools are registered in `backend/app/agent/tool_registry.py`
+and easy to extend.
 
 | Tool | Purpose |
 |------|---------|
@@ -168,7 +181,10 @@ The agent uses **OpenAI tool calling** to invoke the right function based on use
 | `calculate_historical_value` | Historical investment value calculator |
 | `escalate_to_human` | Create support ticket → SES email → DynamoDB log |
 
-> **Adapting to your domain:** Replace `get_fund_nav` / `get_fund_performance` with your own live data sources (REST APIs, databases, scrapers). The orchestrator loop, tool registry pattern, and WebSocket protocol are domain-agnostic.
+> **Adapting to your domain:** Replace `get_fund_nav` / `get_fund_performance`
+> with your own live data sources (REST APIs, databases, scrapers). The
+> orchestrator loop, tool registry pattern, and WebSocket protocol are
+> domain-agnostic.
 
 ---
 
@@ -186,7 +202,9 @@ This project is actively maintained. Weekly workload includes:
 | AWS infrastructure monitoring & cost review | ~1 hr |
 | Eval dataset expansion + Langfuse review | ~1 hr |
 
-The security posture is a first-class concern: SAST runs on every commit via pre-commit hooks (bandit + semgrep), secrets scanning blocks commits with credentials, and all AWS access uses short-lived OIDC tokens.
+The security posture is a first-class concern: SAST runs on every commit via
+pre-commit hooks (bandit + semgrep), secrets scanning blocks commits with
+credentials, and all AWS access uses short-lived OIDC tokens.
 
 ---
 
@@ -230,4 +248,6 @@ MIT — see [`LICENSE`](LICENSE).
 
 ## Security
 
-See [`SECURITY.md`](SECURITY.md) for the vulnerability reporting policy. Please do **not** open public issues for security vulnerabilities.
+See [`SECURITY.md`](SECURITY.md) for the vulnerability reporting policy.
+Please do **not** open public issues for security vulnerabilities.
+

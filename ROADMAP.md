@@ -1,6 +1,8 @@
 # Public Roadmap — AI Contact Center Starter Kit
 
-This is a living document. Items move between milestones as priorities shift. Contributions that advance any milestone are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+This is a living document. Items move between milestones as priorities shift.
+Contributions that advance any milestone are welcome — see
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 > **Last updated:** June 2026
 
