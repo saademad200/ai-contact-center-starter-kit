@@ -1,30 +1,18 @@
 """
-Vector Service — ChromaDB wrapper
-Handles upsert, query, and delete of document chunks in the RAG knowledge base.
+Vector Service — async facade over the configured vector store backend.
+
+Public API is unchanged from the original ChromaDB-only implementation so that
+callers (ingestion pipeline, search_kb tool, chroma admin router) require no
+modifications. Backend selection is driven by `VECTOR_STORE_TYPE`.
+
+Defaults:
+  - chromadb  → in-process ChromaDB (existing behavior)
+  - pgvector  → PostgreSQL + pgvector extension
 """
 
 from typing import Any
 
-import chromadb
-from chromadb.config import Settings
-
-from app.services.embedding_service import generate_embedding, generate_embeddings_batch
-
-_client: Any = None
-_collection: Any = None
-
-COLLECTION_NAME = "alfalah_kb"
-
-
-def get_collection() -> Any:
-    global _client, _collection
-    if _collection is None:
-        _client = chromadb.Client(Settings(is_persistent=True, persist_directory="./chroma_db"))
-        _collection = _client.get_or_create_collection(
-            name=COLLECTION_NAME,
-            metadata={"hnsw:space": "cosine"},
-        )
-    return _collection
+from app.services.vector_store import SearchResult, get_vector_store
 
 
 async def upsert_documents(
@@ -33,18 +21,17 @@ async def upsert_documents(
     metadatas: list[dict[str, Any]],
 ) -> None:
     """
-    Embeds and upserts a batch of text chunks into ChromaDB.
+    Embeds and upserts a batch of text chunks into the configured vector store.
     ids       — Unique IDs per chunk (e.g. "prospectus_alfalah_ghp__chunk_0")
     texts     — The raw text chunks
     metadatas — Dicts with source info, e.g. {"source": "...", "doc_type": "prospectus", "fund_name": "..."}
     """
-    collection = get_collection()
+    from app.services.embedding_service import generate_embeddings_batch
+
+    store = get_vector_store()
     embeddings = await generate_embeddings_batch(texts)
-    collection.upsert(
-        ids=ids,
-        embeddings=embeddings,
-        documents=texts,
-        metadatas=metadatas,
+    await store.upsert_documents(
+        ids=ids, texts=texts, metadatas=metadatas, embeddings=embeddings
     )
 
 
@@ -58,37 +45,26 @@ async def search_documents(
     Returns a list of {text, metadata, distance} dicts.
     `where` lets callers filter by metadata fields, e.g. {"fund_name": "Alfalah GHP Islamic Income Fund"}
     """
-    collection = get_collection()
+    from app.services.embedding_service import generate_embedding
+
+    store = get_vector_store()
     query_embedding = await generate_embedding(query)
-
-    kwargs: dict[str, Any] = dict(
-        query_embeddings=[query_embedding],
-        n_results=top_k,
-        include=["documents", "metadatas", "distances"],
+    results: list[SearchResult] = await store.search_documents(
+        query_embedding=query_embedding, top_k=top_k, where=where
     )
-    if where:
-        kwargs["where"] = where
-
-    results = collection.query(**kwargs)
-
-    output = []
-    for doc, meta, dist in zip(
-        results["documents"][0],
-        results["metadatas"][0],
-        results["distances"][0],
-        strict=False,
-    ):
-        output.append({"text": doc, "metadata": meta, "distance": dist})
-    return output
+    return [
+        {"text": r.text, "metadata": r.metadata, "distance": r.distance}
+        for r in results
+    ]
 
 
 async def delete_documents(ids: list[str]) -> None:
     """Deletes specific chunks by their IDs."""
-    collection = get_collection()
-    collection.delete(ids=ids)
+    store = get_vector_store()
+    await store.delete_documents(ids)
 
 
 async def delete_by_source(source_name: str) -> None:
     """Deletes all chunks belonging to a specific source document."""
-    collection = get_collection()
-    collection.delete(where={"source": source_name})
+    store = get_vector_store()
+    await store.delete_by_source(source_name)

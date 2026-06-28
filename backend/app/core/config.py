@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     # CORS — origins allowed to connect to the WebSocket / REST API
     cors_origins: list[str] = ["*"]
 
+    # Vector store backend — "chromadb" (default) or "pgvector"
+    vector_store_type: str = "chromadb"
+    # PostgreSQL connection string used when vector_store_type == "pgvector"
+    database_url: str = ""
+    # Embedding dimension used by the pgvector table (must match embedding model output)
+    pgvector_dimension: int = 384
+
     @model_validator(mode="after")
     def load_aws_secrets(self) -> "Settings":
         """Load secrets from AWS Secrets Manager in staging/production."""

@@ -2,13 +2,16 @@ from typing import Any, cast
 
 from sentence_transformers import SentenceTransformer
 
+EMBEDDING_DIMENSION = 384  # all-MiniLM-L6-v2 output dimension
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+
 _model: Any = None
 
 
 def get_model() -> Any:
     global _model
     if _model is None:
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
+        _model = SentenceTransformer(EMBEDDING_MODEL)
     return _model
 
 
