@@ -100,11 +100,14 @@ class FakeChromaCollection:
 class TestFactory:
     def test_default_is_chromadb(self) -> None:
         from app.core.config import settings
-        from app.services.vector_store import create_vector_store
+        from app.services.vector_store import ChromaVectorStore, create_vector_store
 
         assert settings.vector_store_type == "chromadb"
-        store = create_vector_store()
-        assert store.__class__.__name__ == "ChromaVectorStore"
+        # For chromadb, create_vector_store returns synchronously
+        import asyncio
+
+        store = asyncio.run(create_vector_store())
+        assert isinstance(store, ChromaVectorStore)
 
     def test_pgvector_requires_database_url(self) -> None:
         from app.services.vector_store import create_vector_store
@@ -113,7 +116,9 @@ class TestFactory:
             s.vector_store_type = "pgvector"
             s.database_url = ""
             with pytest.raises(ValueError, match="DATABASE_URL"):
-                create_vector_store()
+                import asyncio
+
+                asyncio.run(create_vector_store())
 
     def test_unknown_backend_raises(self) -> None:
         from app.services.vector_store import create_vector_store
@@ -122,7 +127,9 @@ class TestFactory:
             s.vector_store_type = "pinecone"
             s.database_url = "postgresql://x"
             with pytest.raises(ValueError, match="Unknown VECTOR_STORE_TYPE"):
-                create_vector_store()
+                import asyncio
+
+                asyncio.run(create_vector_store())
 
 
 # ---------------------------------------------------------------------------
@@ -215,14 +222,26 @@ class TestChromaAdapter:
 
 
 class TestPgVectorStore:
+    @staticmethod
+    def _make_async_pool_mock() -> tuple[Any, Any]:
+        """Create a mock async pool + connection for testing."""
+        from unittest.mock import AsyncMock
+
+        pool = MagicMock()
+        conn = AsyncMock()
+
+        # Build an async context manager mock
+        async_cm = MagicMock()
+        async_cm.__aenter__ = AsyncMock(return_value=conn)
+        async_cm.__aexit__ = AsyncMock(return_value=False)
+        pool.connection.return_value = async_cm
+        return pool, conn
+
     @pytest.mark.asyncio
     async def test_upsert_then_search(self) -> None:
         from app.services.vector_store import PgVectorStore
 
-        pool = MagicMock()
-        conn = MagicMock()
-        pool.connection.return_value.__enter__ = MagicMock(return_value=conn)
-        pool.connection.return_value.__exit__ = MagicMock(return_value=False)
+        pool, conn = self._make_async_pool_mock()
 
         store = PgVectorStore(dsn="postgresql://x", dimension=3)
         store._pool = pool
@@ -235,8 +254,11 @@ class TestPgVectorStore:
         )
         assert conn.execute.called
 
-        fake_row = ("hello", {"source": "a"}, 0.05)
-        conn.execute.return_value.fetchall.return_value = [fake_row]
+        # For search: conn.execute is AsyncMock, so we need to mock the
+        # result of `await conn.execute(...)` to have a .fetchall() method
+        fake_result = MagicMock()
+        fake_result.fetchall.return_value = [("hello", {"source": "a"}, 0.05)]
+        conn.execute.return_value = fake_result
         results = await store.search_documents(query_embedding=[0.1, 0.2, 0.3], top_k=1)
         assert len(results) == 1
         assert results[0].text == "hello"
@@ -259,10 +281,7 @@ class TestPgVectorStore:
     async def test_delete_by_source(self) -> None:
         from app.services.vector_store import PgVectorStore
 
-        pool = MagicMock()
-        conn = MagicMock()
-        pool.connection.return_value.__enter__ = MagicMock(return_value=conn)
-        pool.connection.return_value.__exit__ = MagicMock(return_value=False)
+        pool, conn = self._make_async_pool_mock()
 
         store = PgVectorStore(dsn="postgresql://x", dimension=3)
         store._pool = pool
@@ -271,7 +290,8 @@ class TestPgVectorStore:
         assert "source" in args[0]
         assert "doc_a" in args[1]
 
-    def test_initialize_runs_schema_sql(self) -> None:
+    @pytest.mark.asyncio
+    async def test_initialize_runs_schema_sql(self) -> None:
         from unittest.mock import patch
 
         from app.services.vector_store import PgVectorStore
@@ -282,7 +302,7 @@ class TestPgVectorStore:
         store = PgVectorStore(dsn="postgresql://x", dimension=3)
 
         with patch("psycopg.connect", return_value=fake_conn) as mock_connect:
-            store.initialize()
+            await store.initialize()
             assert mock_connect.called
         assert fake_conn.execute.call_count >= 4
         assert fake_conn.commit.called

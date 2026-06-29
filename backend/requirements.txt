@@ -30,10 +30,12 @@ langfuse==2.53.9
 sentence-transformers==3.3.1
 chromadb==0.6.3
 
-# --- pgvector backend (optional, used when VECTOR_STORE_TYPE=pgvector) ---
-psycopg[binary]==3.2.3
-psycopg_pool==3.2.1
-pgvector==0.3.6
+# --- pgvector backend (optional) ---
+# Install only when VECTOR_STORE_TYPE=pgvector:
+#   pip install -r requirements-pgvector.txt
+# psycopg[binary]==3.2.3
+# psycopg_pool==3.2.1
+# pgvector==0.3.6
 
 # --- Document Processing ---
 pdfplumber==0.11.5

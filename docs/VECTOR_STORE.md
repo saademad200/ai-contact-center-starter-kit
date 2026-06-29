@@ -27,6 +27,16 @@ PGVECTOR_DIMENSION=384   # must match embedding model output (all-MiniLM-L6-v2 =
 If `VECTOR_STORE_TYPE` is omitted it defaults to `chromadb` and the application
 behaves exactly as before.
 
+## Installation
+
+The pgvector dependencies are **not** installed by default. To use the pgvector backend:
+
+```bash
+pip install -r requirements-pgvector.txt
+```
+
+This keeps the default Docker image small (~30MB savings) since most users run ChromaDB.
+
 ## PostgreSQL + pgvector setup
 
 ### 1. Run a pgvector-enabled PostgreSQL

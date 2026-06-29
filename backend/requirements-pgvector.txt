@@ -1,0 +1,10 @@
+# Optional dependencies for the pgvector vector store backend.
+# Install only when VECTOR_STORE_TYPE=pgvector:
+#   pip install -r requirements-pgvector.txt
+#
+# These are kept separate from requirements.txt so that the default
+# ChromaDB-only Docker image stays small (~30MB savings).
+
+psycopg[binary]==3.2.3
+psycopg_pool==3.2.1
+pgvector==0.3.6

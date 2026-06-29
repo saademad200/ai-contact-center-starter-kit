@@ -57,7 +57,7 @@ class TestPgVectorIntegration:
         from app.services.vector_store import PgVectorStore
 
         store = PgVectorStore(dsn=pgvector_dsn, table_name="test_vector_store", dimension=3)
-        store.initialize()
+        await store.initialize()
 
         try:
             await store.upsert_documents(
@@ -86,17 +86,18 @@ class TestPgVectorIntegration:
             assert len(results) == 1
             assert results[0].text == "dogs are loyal friends"
         finally:
-            with store._get_pool().connection() as conn:
-                conn.execute("DROP TABLE IF EXISTS test_vector_store")
-                conn.commit()
-            store.close()
+            pool = await store._get_pool()
+            async with pool.connection() as conn:
+                await conn.execute("DROP TABLE IF EXISTS test_vector_store")
+                await conn.commit()
+            await store.close()
 
     @pytest.mark.asyncio
     async def test_delete_by_source(self, pgvector_dsn: str) -> None:
         from app.services.vector_store import PgVectorStore
 
         store = PgVectorStore(dsn=pgvector_dsn, table_name="test_vector_store_src", dimension=3)
-        store.initialize()
+        await store.initialize()
 
         try:
             await store.upsert_documents(
@@ -112,17 +113,18 @@ class TestPgVectorIntegration:
             assert len(results) == 1
             assert results[0].metadata["source"] == "src_b"
         finally:
-            with store._get_pool().connection() as conn:
-                conn.execute("DROP TABLE IF EXISTS test_vector_store_src")
-                conn.commit()
-            store.close()
+            pool = await store._get_pool()
+            async with pool.connection() as conn:
+                await conn.execute("DROP TABLE IF EXISTS test_vector_store_src")
+                await conn.commit()
+            await store.close()
 
     @pytest.mark.asyncio
     async def test_where_filter(self, pgvector_dsn: str) -> None:
         from app.services.vector_store import PgVectorStore
 
         store = PgVectorStore(dsn=pgvector_dsn, table_name="test_vector_store_wh", dimension=3)
-        store.initialize()
+        await store.initialize()
 
         try:
             await store.upsert_documents(
@@ -142,7 +144,8 @@ class TestPgVectorIntegration:
             assert len(results) == 1
             assert results[0].text == "filtered"
         finally:
-            with store._get_pool().connection() as conn:
-                conn.execute("DROP TABLE IF EXISTS test_vector_store_wh")
-                conn.commit()
-            store.close()
+            pool = await store._get_pool()
+            async with pool.connection() as conn:
+                await conn.execute("DROP TABLE IF EXISTS test_vector_store_wh")
+                await conn.commit()
+            await store.close()

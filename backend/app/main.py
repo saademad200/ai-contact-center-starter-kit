@@ -36,13 +36,13 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting Alfalah GPT API (env=%s)", settings.environment)
     # Eagerly initialise the vector store backend so startup fails fast on bad config.
-    from app.services.vector_store import get_vector_store  # noqa: PLC0415
+    from app.services.vector_store import get_vector_store_async  # noqa: PLC0415
 
-    get_vector_store()
+    await get_vector_store_async()
     yield
     from app.services.vector_store import reset_vector_store  # noqa: PLC0415
 
-    reset_vector_store()
+    await reset_vector_store()
     logger.info("Shutting down Alfalah GPT API")
 
 

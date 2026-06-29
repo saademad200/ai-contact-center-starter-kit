@@ -14,7 +14,6 @@ changes when the default backend is selected.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
@@ -152,6 +151,8 @@ class PgVectorStore:
 
     Stores pre-generated embeddings from the embedding service.
     Uses cosine distance (`<=>`) to match ChromaDB's cosine semantics.
+
+    Uses psycopg3's native AsyncConnectionPool for non-blocking I/O.
     """
 
     def __init__(
@@ -167,54 +168,65 @@ class PgVectorStore:
 
     # -- connection pool lifecycle ----------------------------------------------
 
-    def _get_pool(self) -> Any:
+    async def _get_pool(self) -> Any:
         if self._pool is None:
-            from psycopg_pool import ConnectionPool
+            from psycopg_pool import AsyncConnectionPool
 
-            self._pool = ConnectionPool(
+            self._pool = AsyncConnectionPool(
                 conninfo=self._dsn,
                 min_size=1,
                 max_size=10,
-                open=True,
+                open=False,
             )
-            log.info("[pgvector] connection pool opened (table=%s)", self._table_name)
+            await self._pool.open()
+            log.info("[pgvector] async connection pool opened (table=%s)", self._table_name)
         return self._pool
 
-    def initialize(self) -> None:
-        """Create extension, table, and indexes. Idempotent."""
-        from psycopg import connect
+    async def initialize(self) -> None:
+        """Create extension, table, and indexes. Idempotent.
 
-        with connect(self._dsn) as conn:
-            conn.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-            conn.execute(
-                f"""
-                CREATE TABLE IF NOT EXISTS {self._table_name} (
-                    id TEXT PRIMARY KEY,
-                    content TEXT NOT NULL,
-                    metadata JSONB NOT NULL DEFAULT '{{}}'::jsonb,
-                    embedding vector({self._dimension}) NOT NULL,
-                    source TEXT
-                );
-                """
-            )
-            conn.execute(
-                f"CREATE INDEX IF NOT EXISTS {self._table_name}_embedding_idx "
-                f"ON {self._table_name} USING hnsw (embedding vector_cosine_ops);"
-            )
-            conn.execute(
-                f"CREATE INDEX IF NOT EXISTS {self._table_name}_source_idx "
-                f"ON {self._table_name} (source);"
-            )
-            conn.execute(
-                f"CREATE INDEX IF NOT EXISTS {self._table_name}_metadata_idx "
-                f"ON {self._table_name} USING GIN (metadata jsonb_path_ops);"
-            )
-            conn.commit()
+        Uses a sync connection for DDL since psycopg3's async pool
+        doesn't support DDL transactions well. This runs once at startup.
+        """
+        import asyncio
+
+        def _init_ddl() -> None:
+            from psycopg import connect
+
+            with connect(self._dsn) as conn:
+                conn.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+                conn.execute(
+                    f"""
+                    CREATE TABLE IF NOT EXISTS {self._table_name} (
+                        id TEXT PRIMARY KEY,
+                        content TEXT NOT NULL,
+                        metadata JSONB NOT NULL DEFAULT '{{}}'::jsonb,
+                        embedding vector({self._dimension}) NOT NULL,
+                        source TEXT
+                    );
+                    """
+                )
+                conn.execute(
+                    f"CREATE INDEX IF NOT EXISTS {self._table_name}_embedding_idx "
+                    f"ON {self._table_name} USING hnsw (embedding vector_cosine_ops);"
+                )
+                conn.execute(
+                    f"CREATE INDEX IF NOT EXISTS {self._table_name}_source_idx "
+                    f"ON {self._table_name} (source);"
+                )
+                conn.execute(
+                    f"CREATE INDEX IF NOT EXISTS {self._table_name}_metadata_idx "
+                    f"ON {self._table_name} USING GIN (metadata jsonb_path_ops);"
+                )
+                conn.commit()
+
+        # DDL is sync-only; run in thread to avoid blocking the event loop
+        await asyncio.to_thread(_init_ddl)
         log.info("[pgvector] schema initialized (table=%s)", self._table_name)
 
-    def close(self) -> None:
+    async def close(self) -> None:
         if self._pool is not None:
-            self._pool.close()
+            await self._pool.close()
             self._pool = None
             log.info("[pgvector] connection pool closed")
 
@@ -230,7 +242,12 @@ class PgVectorStore:
 
     @staticmethod
     def _to_sql_where(where: dict[str, Any] | None) -> tuple[str, list[Any]]:
-        """Convert a Chroma-style where dict into a parameterized SQL WHERE clause."""
+        """Convert a Chroma-style where dict into a parameterized SQL WHERE clause.
+
+        Supports filtering by `source` (top-level column) and arbitrary
+        metadata keys (JSONB lookup). This preserves ChromaDB's `where`
+        semantics for the pgvector backend.
+        """
         if not where:
             return "", []
         clauses: list[str] = []
@@ -239,8 +256,7 @@ class PgVectorStore:
             if key == "source":
                 clauses.append("source = %s")
             else:
-                clauses.append("metadata->>%s = %s")
-                params.append(key)
+                clauses.append(f"metadata->>'{key}' = %s")
             params.append(value)
         where_sql = " AND ".join(clauses)
         return f"WHERE {where_sql}", params
@@ -275,13 +291,10 @@ class PgVectorStore:
             f"VALUES {', '.join(values_placeholders)} {upsert_sql}"
         )
 
-        def _run() -> None:
-            pool = self._get_pool()
-            with pool.connection() as conn:
-                conn.execute(sql, params)
-                conn.commit()
-
-        await asyncio.to_thread(_run)
+        pool = await self._get_pool()
+        async with pool.connection() as conn:
+            await conn.execute(sql, params)
+            await conn.commit()
 
     async def search_documents(
         self,
@@ -298,16 +311,13 @@ class PgVectorStore:
         )
         params: list[Any] = [emb_literal, *where_params, emb_literal, top_k]
 
-        def _run() -> list[SearchResult]:
-            pool = self._get_pool()
-            with pool.connection() as conn:
-                rows = conn.execute(sql, params).fetchall()
-            return [
-                SearchResult(text=row[0], metadata=row[1], distance=float(row[2]))
-                for row in rows
-            ]
-
-        return await asyncio.to_thread(_run)
+        pool = await self._get_pool()
+        async with pool.connection() as conn:
+            rows = (await conn.execute(sql, params)).fetchall()
+        return [
+            SearchResult(text=row[0], metadata=row[1], distance=float(row[2]))
+            for row in rows
+        ]
 
     async def delete_documents(self, ids: list[str]) -> None:
         if not ids:
@@ -315,30 +325,24 @@ class PgVectorStore:
         placeholders = ", ".join(["%s"] * len(ids))
         sql = f"DELETE FROM {self._table_name} WHERE id IN ({placeholders})"
 
-        def _run() -> None:
-            pool = self._get_pool()
-            with pool.connection() as conn:
-                conn.execute(sql, list(ids))
-                conn.commit()
-
-        await asyncio.to_thread(_run)
+        pool = await self._get_pool()
+        async with pool.connection() as conn:
+            await conn.execute(sql, list(ids))
+            await conn.commit()
 
     async def delete_by_source(self, source: str) -> None:
         sql = f"DELETE FROM {self._table_name} WHERE source = %s"
 
-        def _run() -> None:
-            pool = self._get_pool()
-            with pool.connection() as conn:
-                conn.execute(sql, [source])
-                conn.commit()
-
-        await asyncio.to_thread(_run)
+        pool = await self._get_pool()
+        async with pool.connection() as conn:
+            await conn.execute(sql, [source])
+            await conn.commit()
 
 
 # ── Factory ──────────────────────────────────────────────────────────────────
 
 
-def create_vector_store() -> VectorStore:
+async def create_vector_store() -> VectorStore:
     """Build the configured vector store backend from settings."""
     backend = settings.vector_store_type.lower()
     if backend == "pgvector":
@@ -350,7 +354,7 @@ def create_vector_store() -> VectorStore:
             dsn=settings.database_url,
             dimension=settings.pgvector_dimension,
         )
-        pg_store.initialize()
+        await pg_store.initialize()
         log.info("[vector_store] using pgvector backend")
         return pg_store
     if backend == "chromadb":
@@ -368,16 +372,26 @@ def create_vector_store() -> VectorStore:
 _store: VectorStore | None = None
 
 
-def get_vector_store() -> VectorStore:
+async def get_vector_store_async() -> VectorStore:
+    """Initialise (if needed) and return the configured vector store."""
     global _store
     if _store is None:
-        _store = create_vector_store()
+        _store = await create_vector_store()
     return _store
 
 
-def reset_vector_store() -> None:
-    """Reset the singleton (used by tests)."""
+def get_vector_store() -> VectorStore:
+    """Return the already-initialised vector store (fails if not ready)."""
+    if _store is None:
+        raise RuntimeError(
+            "Vector store not initialised. Call get_vector_store_async() first."
+        )
+    return _store
+
+
+async def reset_vector_store() -> None:
+    """Reset the singleton (used by tests and shutdown)."""
     global _store
     if isinstance(_store, PgVectorStore):
-        _store.close()
+        await _store.close()
     _store = None
