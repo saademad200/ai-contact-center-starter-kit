@@ -93,3 +93,18 @@ This document captures the key design decisions, scope changes, and rationale fr
 - **No Jira/Zendesk integration** — email escalation is sufficient.
 - **No A/B prompt testing** — prompt registry supports it architecturally but no UI for it in v1.
 - **No mobile app** — widget is web-only.
+
+---
+
+## ADR-011: Pluggable Vector Store with Optional pgvector Backend
+- **Decision:** Introduce a small `VectorStore` Protocol abstraction and ship two adapters: `ChromaVectorStore` (default, preserves existing behavior) and `PgVectorStore` (PostgreSQL + pgvector, opt-in via `VECTOR_STORE_TYPE=pgvector`).
+- **Rationale:** ChromaDB is ideal for local development and single-node deployments, but production environments often require a managed, durable, shared PostgreSQL instance. pgvector is the lowest-friction Postgres-native vector option and pairs naturally with AWS RDS / Cloud SQL.
+- **Key constraints:**
+  - ChromaDB remains the default; no existing user needs to change config.
+  - The public async API in `vector_service.py` is preserved exactly — zero caller changes.
+  - pgvector stores **pre-generated embeddings** from the existing `embedding_service`; no embedding generation moves into Postgres.
+  - Uses `psycopg3` + `psycopg_pool` (no SQLAlchemy — the project uses raw `boto3` for DynamoDB and prefers explicit drivers).
+  - Metadata is stored as JSONB with a GIN index; `source` is a top-level column for efficient source-based deletes.
+  - Cosine distance (`<=>`) matches ChromaDB's `hnsw:space: cosine` semantics so distance values are comparable across backends.
+- **Trade-off:** The `/api/v1/chroma` admin endpoints are ChromaDB-specific; they return `NotImplementedError` when pgvector is selected. Acceptable for v1.
+- **Future:** Additional backends (Qdrant, Weaviate, Pinecone) can be added by implementing the `VectorStore` Protocol and registering in the factory.

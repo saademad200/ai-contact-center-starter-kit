@@ -5,6 +5,7 @@ Loads from env vars / .env file. All settings documented with defaults.
 """
 
 import json
+from typing import Literal
 
 import boto3
 from pydantic import model_validator
@@ -39,6 +40,32 @@ class Settings(BaseSettings):
 
     # CORS — origins allowed to connect to the WebSocket / REST API
     cors_origins: list[str] = ["*"]
+
+    # Vector store backend — "chromadb" (default) or "pgvector"
+    vector_store_type: Literal["chromadb", "pgvector"] = "chromadb"
+    # PostgreSQL connection string used when vector_store_type == "pgvector"
+    database_url: str = ""
+    # Embedding dimension used by the pgvector table (must match embedding model output)
+    pgvector_dimension: int = 384
+
+    @model_validator(mode="after")
+    def validate_vector_store_config(self) -> "Settings":
+        """Cross-validate vector store settings at startup."""
+        if self.vector_store_type == "pgvector":
+            if not self.database_url:
+                raise ValueError(
+                    "VECTOR_STORE_TYPE=pgvector requires DATABASE_URL to be set"
+                )
+            # Cross-check dimension against the embedding model to prevent silent corruption
+            from app.services.embedding_service import EMBEDDING_DIMENSION
+
+            if self.pgvector_dimension != EMBEDDING_DIMENSION:
+                raise ValueError(
+                    f"PGVECTOR_DIMENSION ({self.pgvector_dimension}) does not match "
+                    f"EMBEDDING_DIMENSION ({EMBEDDING_DIMENSION}) from the embedding model. "
+                    f"These must be equal to prevent silent data corruption."
+                )
+        return self
 
     @model_validator(mode="after")
     def load_aws_secrets(self) -> "Settings":
