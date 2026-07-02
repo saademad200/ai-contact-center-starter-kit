@@ -5,9 +5,6 @@ GET  /api/v1/chroma/stats              — collection stats (count, metadata)
 GET  /api/v1/chroma/documents          — paginated list of stored chunks
 GET  /api/v1/chroma/search?q=<query>   — run a semantic search (for debugging)
 DELETE /api/v1/chroma/documents/{id}   — delete a single chunk by ID
-
-NOTE: These endpoints are ChromaDB-specific and return HTTP 501 when
-      VECTOR_STORE_TYPE=pgvector is configured.
 """
 
 from typing import Annotated, Any
@@ -17,9 +14,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.core.dependencies import require_admin
 from app.services.vector_service import (
     delete_documents,
+    get_collection,
     search_documents,
 )
-from app.services.vector_store import ChromaVectorStore, get_vector_store
 
 router = APIRouter(prefix="/chroma", tags=["chroma"])
 
@@ -27,24 +24,9 @@ router = APIRouter(prefix="/chroma", tags=["chroma"])
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _require_chroma() -> ChromaVectorStore:
-    """Return the ChromaVectorStore, or raise 501 if another backend is active."""
-    store = get_vector_store()
-    if not isinstance(store, ChromaVectorStore):
-        raise HTTPException(
-            status_code=501,
-            detail=(
-                "ChromaDB admin endpoints are not available when "
-                "VECTOR_STORE_TYPE=pgvector. Use your PostgreSQL tooling to "
-                "inspect the vector_store table directly."
-            ),
-        )
-    return store
-
-
-def _collection_info(store: ChromaVectorStore) -> dict[str, Any]:
+def _collection_info() -> dict[str, Any]:
     """Return raw collection metadata from ChromaDB."""
-    col = store.get_collection()
+    col = get_collection()
     return {
         "name": col.name,
         "count": col.count(),
@@ -65,11 +47,9 @@ def chroma_stats(
     - Collection name and HNSW metadata
     - Breakdown of unique source documents stored
     """
-    store = _require_chroma()
-    col = store.get_collection()
-    info = _collection_info(store)
+    col = get_collection()
+    info = _collection_info()
 
-    # Get all stored metadatas to compute per-source breakdown
     try:
         results = col.get(include=["metadatas"])
         metadatas = results.get("metadatas") or []
@@ -98,8 +78,7 @@ def chroma_list_documents(
     Returns a paginated list of raw chunks stored in ChromaDB.
     Optionally filter by source document name.
     """
-    store = _require_chroma()
-    col = store.get_collection()
+    col = get_collection()
 
     try:
         kwargs: dict[str, Any] = {
@@ -145,8 +124,6 @@ async def chroma_search(
     Runs a semantic search against the knowledge base.
     Useful for verifying that uploaded documents are being retrieved correctly.
     """
-    _require_chroma()  # guard — raises 501 if pgvector is active
-
     try:
         results = await search_documents(query=q, top_k=top_k)
     except Exception as exc:
@@ -175,8 +152,6 @@ async def chroma_delete_chunk(
     Deletes a single chunk from ChromaDB by its ID.
     Use with caution — this bypasses the DynamoDB document record.
     """
-    _require_chroma()  # guard — raises 501 if pgvector is active
-
     try:
         await delete_documents([chunk_id])
     except Exception as exc:
