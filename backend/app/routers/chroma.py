@@ -82,10 +82,7 @@ def chroma_stats(
 
     return {
         "collection": info,
-        "sources": [
-            {"source": src, "chunks": count}
-            for src, count in sorted(source_counts.items())
-        ],
+        "sources": [{"source": src, "chunks": count} for src, count in sorted(source_counts.items())],
         "total_sources": len(source_counts),
     }
 
